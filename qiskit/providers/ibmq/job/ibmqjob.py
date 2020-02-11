@@ -31,7 +31,7 @@ from qiskit.providers import (BaseJob,  # type: ignore[attr-defined]
                               BaseBackend)
 from qiskit.providers.jobstatus import JOB_FINAL_STATES, JobStatus
 from qiskit.providers.models import BackendProperties
-from qiskit.qobj import Qobj
+from qiskit.qobj import Qobj, QobjHeader
 from qiskit.result import Result
 from qiskit.validation import BaseModel, ModelValidationError, bind_schema
 
@@ -40,6 +40,8 @@ from ..api.clients import AccountClient
 from ..api.exceptions import ApiError, UserTimeoutExceededError
 from .exceptions import (IBMQJobApiError, IBMQJobFailureError,
                          IBMQJobTimeoutError, IBMQJobInvalidStateError)
+from ..backendconfiguration import BackendConfiguration
+from ..gatedefinition import GateDefinition
 from .queueinfo import QueueInfo
 from .schema import JobResponseSchema
 from .utils import build_error_report, api_status_to_job_status, api_to_job_error
@@ -146,6 +148,7 @@ class IBMQJob(BaseModel, BaseJob):
         # Properties used for caching.
         self._cancelled = False
         self._job_error_msg = None  # type: Optional[str]
+        self._backend_config = BackendConfiguration()
 
     def qobj(self) -> Optional[Qobj]:
         """Return the Qobj for this job.
@@ -559,6 +562,18 @@ class IBMQJob(BaseModel, BaseJob):
             if future:
                 exit_event.set()
                 future.result()
+
+    def backend_configuration(self):
+        if not self._result:  # type: ignore[has-type]
+            try:
+                result_response = self._api.job_result(self.job_id(), self._use_object_storage)
+                self._result = Result.from_dict(result_response)
+            except (ModelValidationError, ApiError) as err:
+                raise IBMQJobApiError(str(err))
+
+        header = QobjHeader.from_dict(self._result.header.__dict__)
+        self._backend_config.gate_def = GateDefinition.from_dict(header.gatedef)
+        return self._backend_config
 
     def _wait_for_completion(
             self,

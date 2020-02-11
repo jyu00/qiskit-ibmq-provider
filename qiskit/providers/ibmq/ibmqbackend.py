@@ -21,7 +21,7 @@ from typing import Dict, List, Union, Optional, Any
 from datetime import datetime as python_datetime
 from marshmallow import ValidationError
 
-from qiskit.qobj import Qobj, validate_qobj_against_schema
+from qiskit.qobj import Qobj, validate_qobj_against_schema, QobjHeader
 from qiskit.providers.basebackend import BaseBackend  # type: ignore[attr-defined]
 from qiskit.providers.jobstatus import JobStatus
 from qiskit.providers.models import (BackendStatus, BackendProperties,
@@ -69,6 +69,7 @@ class IBMQBackend(BaseBackend):
         self.hub = credentials.hub
         self.group = credentials.group
         self.project = credentials.project
+        self._custom_config = None
 
         # Attributes used by caching functions.
         self._properties = None
@@ -162,6 +163,13 @@ class IBMQBackend(BaseBackend):
                  the server.
         """
         try:
+            if self._custom_config:
+                header_dict = {
+                    'gatedef': self._custom_config.gate_def.to_dict(),
+                    'gatedef_replace': not self._custom_config.gate_def.get_control()['merge']
+                }
+                qobj.header = QobjHeader.from_dict(header_dict)
+
             qobj_dict = qobj.to_dict()
             submit_info = self._api.job_submit(
                 backend_name=self.name(),
@@ -466,6 +474,10 @@ class IBMQBackend(BaseBackend):
                 self.hub, self.group, self.project)
         return "<{}('{}') from IBMQ({})>".format(
             self.__class__.__name__, self.name(), credentials_info)
+
+    def set_custom_config(self, custom_config):
+        """Set custom configuration."""
+        self._custom_config = custom_config
 
 
 class IBMQSimulator(IBMQBackend):
