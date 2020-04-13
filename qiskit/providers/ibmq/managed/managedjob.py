@@ -80,10 +80,12 @@ class ManagedJob:
             job_tags: Tags to be assigned to the job.
         """
 
+        logger.debug("Submitting job %s", job_name)
         # Submit the job in its own future.
         self.future = executor.submit(
             self._async_submit, qobj=qobj, job_name=job_name, backend=backend,
             submit_lock=submit_lock, job_share_level=job_share_level, job_tags=job_tags)
+        logger.debug("Job %s future obtained", job_name)
 
     def _async_submit(
             self,

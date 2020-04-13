@@ -117,11 +117,7 @@ class TestIBMQJob(JobTestCase):
         qc.measure(qr, cr)
         qobj = assemble(transpile([qc] * 20, backend=backend), backend=backend, shots=2048)
         num_jobs = 5
-        try:
-            job_array = [backend.run(qobj, validate_qobj=True) for _ in range(num_jobs)]
-        except Exception:
-            self.log.error("Active jobs are {}".format(backend.active_jobs()))
-            raise
+        job_array = [backend.run(qobj, validate_qobj=True) for _ in range(num_jobs)]
         timeout = 30
         start_time = time.time()
         while True:
