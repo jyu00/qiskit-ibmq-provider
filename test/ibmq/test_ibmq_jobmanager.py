@@ -382,6 +382,7 @@ class TestResultManager(IBMQTestCase):
         for _ in range(max_circs+2):
             circs.append(self._qc)
         job_set = self._jm.run(circs, backend=backend)
+        self.log.debug("Jobs sent to job manager.")
         jobs = job_set.jobs()
         cjob = jobs[1]
         cancelled = cancel_job(cjob)
