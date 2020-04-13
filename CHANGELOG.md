@@ -16,6 +16,19 @@ The format is based on [Keep a Changelog].
 
 ## [UNRELEASED]
 
+### Changed
+
+- `IBMQFactory.save_account()` and `IBMQFactory.enable_account()` now accept
+  the optional parameters `hub`, `group`, `project`, which allow specifying a 
+  default provider to save to disk or use, respectively. (\#611)
+
+### Fixed
+
+- Fixed an issue where `nest_asyncio.apply()` may raise an exception
+  if there is no asyncio loop due to threading. (\#595)  
+  
+## [0.6.0] - 2020-03-26
+
 ### Added
 
 - There are three new exceptions: `VisualizationError`, `VisualizationValueError`,
@@ -28,6 +41,8 @@ The format is based on [Keep a Changelog].
   respectively. Note that the name of the logger is `qiskit.providers.ibmq`. (\#579)
 - `IBMQJob` now has a new method `scheduling_mode()` that returns the scheduling
   mode the job is in. (\#593)
+- IQX-related tutorials that used to be in `qiskit-iqx-tutorials` are now in 
+  `qiskit-ibmq-provider`. (\#603)
 
 ### Changed
 
@@ -361,8 +376,9 @@ The format is based on [Keep a Changelog].
 - Support for non-qobj format has been removed. (\#26, \#28)
 
 
-[UNRELEASED]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.5.0...HEAD
-[0.4.6]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.4.6...0.5.0
+[UNRELEASED]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.5.0...0.6.0
+[0.5.0]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.4.6...0.5.0
 [0.4.6]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.4.5...0.4.6
 [0.4.5]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.4.4...0.4.5
 [0.4.4]: https://github.com/Qiskit/qiskit-ibmq-provider/compare/0.4.3...0.4.4
