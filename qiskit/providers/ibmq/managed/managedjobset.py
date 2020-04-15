@@ -119,7 +119,7 @@ class ManagedJobSet:
             qobj = assemble(experiments, backend=backend, **assemble_config)
             job_name = "{}_{}_".format(self._name, i)
             mjob = ManagedJob(experiments_count=len(experiments), start_index=exp_index)
-            logger.debug("Calling ManagedJob.submit. Pool threads are %s, pending jobs are %s",
+            logger.debug("Calling ManagedJob.submit(). Pool threads are %s, pending jobs are %s",
                          str(len(executor._threads)),
                          str(executor._work_queue.qsize()))
             mjob.submit(qobj=qobj, job_name=job_name, backend=backend,
