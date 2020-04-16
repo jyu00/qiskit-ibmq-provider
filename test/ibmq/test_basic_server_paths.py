@@ -15,7 +15,6 @@
 """Tests that hit all the basic server endpoints using both a public and premium provider."""
 
 import time
-from unittest import skip
 
 from qiskit.test import slow_test
 from qiskit.providers.ibmq import least_busy
@@ -26,7 +25,6 @@ from ..ibmqtestcase import IBMQTestCase
 from ..utils import cancel_job, bell_in_qobj
 
 
-@skip('Skipping due to job limit error.')
 class TestBasicServerPaths(IBMQTestCase):
     """Test the basic server endpoints using both a public and premium provider."""
 
