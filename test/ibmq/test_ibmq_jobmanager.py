@@ -22,6 +22,7 @@ from concurrent.futures import wait
 
 from qiskit import QuantumCircuit
 from qiskit.result import Result
+from qiskit.test import slow_test
 
 from qiskit.providers.ibmq.managed.ibmqjobmanager import IBMQJobManager
 from qiskit.providers.ibmq.managed.managedresults import ManagedResults
@@ -317,6 +318,7 @@ class TestIBMQJobManager(IBMQTestCase):
                     job_set._job_submit_lock.release()
             wait([mjob.future for mjob in job_set.managed_jobs()], timeout=5)
 
+    @slow_test
     @requires_providers
     def test_job_limit_open(self, providers):
         """Test reaching job limit with open provider."""
