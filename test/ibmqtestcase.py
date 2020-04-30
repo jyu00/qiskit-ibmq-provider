@@ -16,6 +16,7 @@
 
 import os
 import logging
+import time
 
 from qiskit.test import QiskitTestCase
 
@@ -30,6 +31,7 @@ class IBMQTestCase(QiskitTestCase):
         super().setUpClass()
         if os.getenv('LOG_LEVEL'):
             cls._set_logging_level(logging.getLogger(IBMQ_PROVIDER_LOGGER_NAME))
+        cls.start_time = time.time()
 
     def tearDown(self):
         # Reset the default providers, as in practice they acts as a singleton
@@ -40,6 +42,11 @@ class IBMQTestCase(QiskitTestCase):
 
         from qiskit.providers.basicaer import BasicAer
         BasicAer._backends = BasicAer._verify_backends()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if hasattr(cls, 'log'):
+            cls.log.debug('Total time spent %s seconds', time.time() - cls.start_time)
 
     @classmethod
     def simple_job_callback(cls, job_id, job_status, job, **kwargs):

@@ -24,7 +24,6 @@ from qiskit import QuantumCircuit
 from qiskit.result import Result
 
 from qiskit.providers.ibmq.managed.ibmqjobmanager import IBMQJobManager
-from qiskit.providers.ibmq.managed.managedjobset import ManagedJobSet
 from qiskit.providers.ibmq.managed.managedresults import ManagedResults
 from qiskit.providers.ibmq.managed import managedjob
 from qiskit.providers.ibmq.managed.exceptions import (
@@ -34,10 +33,10 @@ from qiskit.compiler import transpile, assemble
 from qiskit.test.reference_circuits import ReferenceCircuits
 
 from ..ibmqtestcase import IBMQTestCase
-from ..decorators import requires_provider
+from ..decorators import requires_provider, requires_providers
 from ..fake_account_client import (BaseFakeAccountClient, CancelableFakeJob,
                                    JobSubmitFailClient)
-from ..utils import cancel_job
+from ..utils import cancel_job, most_busy_backend
 
 
 class TestIBMQJobManager(IBMQTestCase):
@@ -317,6 +316,39 @@ class TestIBMQJobManager(IBMQTestCase):
                 elif job_set._job_submit_lock.locked():
                     job_set._job_submit_lock.release()
             wait([mjob.future for mjob in job_set.managed_jobs()], timeout=5)
+
+    @requires_providers
+    def test_job_limit_open(self, providers):
+        """Test reaching job limit with open provider."""
+        provider = providers['public_provider']
+        backend = most_busy_backend(provider)
+        job_limit = backend.job_limit().maximum_jobs
+
+        circs = transpile([self._qc]*(job_limit+1), backend=backend)
+        job_set = None
+        try:
+            with self.assertLogs(managedjob.logger, 'WARNING') as log_cm:
+                job_set = self._jm.run(circs, backend=backend, max_experiments_per_job=1)
+                submitted = []
+                while len(submitted) < job_limit:
+                    time.sleep(1)
+                    submitted = [mjob.job for mjob in job_set.managed_jobs()
+                                 if mjob.job is not None]
+                time.sleep(3)
+
+            self.log.debug(log_cm.output[0])
+            for job in submitted:
+                self.log.debug("Canceling job %s", job.job_id())
+                cancel_job(job)
+
+            wait([mjob.future for mjob in job_set.managed_jobs()], timeout=10)
+        finally:
+            # Cancel all submitted jobs first.
+            for mjob in job_set.managed_jobs():
+                if mjob.job is not None and mjob.job.status() is not JobStatus.CANCELLED:
+                    mjob.cancel()
+                elif job_set._job_submit_lock.locked():
+                    job_set._job_submit_lock.release()
 
     @requires_provider
     def test_job_tags_replace(self, provider):
