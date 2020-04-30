@@ -19,15 +19,15 @@ import warnings
 
 from typing import Dict, List, Union, Optional, Any
 from datetime import datetime as python_datetime
-from marshmallow import ValidationError
 
 from qiskit.qobj import QasmQobj, PulseQobj, validate_qobj_against_schema
 from qiskit.providers.basebackend import BaseBackend  # type: ignore[attr-defined]
 from qiskit.providers.jobstatus import JobStatus
 from qiskit.providers.models import (BackendStatus, BackendProperties,
-                                     PulseDefaults, BackendConfiguration, GateConfig)
-from qiskit.validation.exceptions import ModelValidationError
+                                     PulseDefaults, GateConfig)
 from qiskit.tools.events.pubsub import Publisher
+from qiskit.providers.models import (QasmBackendConfiguration,
+                                     PulseBackendConfiguration)
 
 from qiskit.providers.ibmq import accountprovider  # pylint: disable=unused-import
 from .apiconstants import ApiJobShareLevel, ApiJobStatus, API_JOB_FINAL_STATES
@@ -41,6 +41,7 @@ from .exceptions import (IBMQBackendError, IBMQBackendValueError,
                          IBMQBackendJobLimitError)
 from .job import IBMQJob
 from .utils import update_qobj_config, validate_job_tags
+from .utils.json_decoder import decode_pulse_defaults
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ class IBMQBackend(BaseBackend):
 
     def __init__(
             self,
-            configuration: BackendConfiguration,
+            configuration: Union[QasmBackendConfiguration, PulseBackendConfiguration],
             provider: 'accountprovider.AccountProvider',
             credentials: Credentials,
             api: AccountClient
@@ -148,7 +149,6 @@ class IBMQBackend(BaseBackend):
             The job to be executed, an instance derived from BaseJob.
 
         Raises:
-            SchemaValidationError: If the job validation fails.
             IBMQBackendApiError: If an unexpected error occurred while submitting
                 the job.
             IBMQBackendApiProtocolError: If an unexpected value received from
@@ -227,15 +227,10 @@ class IBMQBackend(BaseBackend):
                 'Error submitting job: {}'.format(str(submit_info['error'])))
 
         # Submission success.
-        submit_info.update({
-            '_backend': self,
-            'api': self._api,
-            'qObject': qobj
-        })
         try:
-            job = IBMQJob.from_dict(submit_info)
+            job = IBMQJob(backend=self, api=self._api, qobj=qobj, **submit_info)
             logger.debug('Job %s was successfully submitted.', job.job_id())
-        except ModelValidationError as err:
+        except TypeError as err:
             raise IBMQBackendApiProtocolError('Unexpected return value received from the server '
                                               'when submitting job: {}'.format(str(err))) from err
         Publisher().publish("ibmq.job.start", job)
@@ -286,7 +281,7 @@ class IBMQBackend(BaseBackend):
 
         try:
             return BackendStatus.from_dict(api_status)
-        except ValidationError as ex:
+        except TypeError as ex:
             raise IBMQBackendApiProtocolError(
                 'Unexpected return value received from the server when '
                 'getting backend status: {}'.format(str(ex))) from ex
@@ -307,6 +302,7 @@ class IBMQBackend(BaseBackend):
         if refresh or self._defaults is None:
             api_defaults = self._api.backend_pulse_defaults(self.name())
             if api_defaults:
+                decode_pulse_defaults(api_defaults)
                 self._defaults = PulseDefaults.from_dict(api_defaults)
             else:
                 self._defaults = None
@@ -347,12 +343,12 @@ class IBMQBackend(BaseBackend):
         api_job_limit = self._api.backend_job_limit(self.name())
 
         try:
-            job_limit = BackendJobLimit.from_dict(api_job_limit)
+            job_limit = BackendJobLimit(**api_job_limit)
             if job_limit.maximum_jobs == -1:
                 # Manually set `maximum` to `None` if backend has no job limit.
                 job_limit.maximum_jobs = None
             return job_limit
-        except ValidationError as ex:
+        except TypeError as ex:
             raise IBMQBackendApiProtocolError(
                 'Unexpected return value received from the server when '
                 'querying job limit data for the backend: {}.'.format(ex)) from ex
@@ -563,7 +559,7 @@ class IBMQRetiredBackend(IBMQBackend):
 
     def __init__(
             self,
-            configuration: BackendConfiguration,
+            configuration: Union[QasmBackendConfiguration, PulseBackendConfiguration],
             provider: 'accountprovider.AccountProvider',
             credentials: Credentials,
             api: AccountClient
@@ -632,7 +628,7 @@ class IBMQRetiredBackend(IBMQBackend):
             api: AccountClient
     ) -> 'IBMQRetiredBackend':
         """Return a retired backend from its name."""
-        configuration = BackendConfiguration(
+        configuration = QasmBackendConfiguration(
             backend_name=backend_name,
             backend_version='0.0.0',
             n_qubits=1,
