@@ -23,6 +23,9 @@ from qiskit.test import QiskitTestCase
 from qiskit.providers.ibmq import IBMQ_PROVIDER_LOGGER_NAME
 
 
+test_time = {}
+
+
 class IBMQTestCase(QiskitTestCase):
     """Custom TestCase for use with the IBMQProvider."""
 
@@ -45,8 +48,9 @@ class IBMQTestCase(QiskitTestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        test_time[cls.__name__] = time.time() - cls.start_time
         if hasattr(cls, 'log'):
-            cls.log.debug('Total time spent %s seconds', time.time() - cls.start_time)
+            cls.log.debug('Time spent: %s', test_time)
 
     @classmethod
     def simple_job_callback(cls, job_id, job_status, job, **kwargs):
