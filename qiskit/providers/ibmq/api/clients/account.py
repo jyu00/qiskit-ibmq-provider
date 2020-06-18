@@ -125,7 +125,7 @@ class AccountClient(BaseClient):
         """
         return self.client_api.backend(backend_name).job_limit()
 
-    # Jobs-related public functions.
+    # Jobs-related functions.
 
     def list_jobs_statuses(
             self,
@@ -468,3 +468,60 @@ class AccountClient(BaseClient):
             it is associated with.
         """
         return self.client_api.job(job_id).update_attribute({attr_name: attr_value})
+
+    # Circuits-related functions.
+
+    def list_circuits(self) -> List[Dict[str, Any]]:
+        """Return circuits available for this provider.
+
+        Returns:
+            Circuits available for this provider.
+        """
+        fake_response = [
+            {"name": "circuit1",
+             "description": "description1",
+             "arguments": [{
+                "name": "arg1",
+                "description": "first argument",
+                "type": "int",
+                "required": False,
+             }]},
+            {"name": "circuit2",
+             "description": "description2",
+             "arguments": [{
+                 "name": "arg2",
+                 "description": "circ2 argument",
+                 "type": "int",
+                 "required": True,
+             }]}
+        ]
+        return fake_response
+        # return self.client_api.circuits()
+
+    def circuit_get(self, circuit_name: str):
+        """Return information about the circuit.
+
+        Args:
+            circuit_name: Name of the circuit.
+
+        Returns:
+            Circuit information.
+        """
+        return self.client_api.circuit(circuit_name).get()
+
+    def circuit_compile(
+            self,
+            circuit_name: str,
+            output_format: str,
+            **arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Compile the circuit with the given arguments.
+
+        Args:
+            circuit_name: Name of the circuit.
+            output_format: Output format.
+            **arguments: Arguments used to compile the circuit.
+
+        Returns:
+            Compiled circuit.
+        """
+        return self.client_api.circuit(circuit_name).compile(output_format, **arguments)

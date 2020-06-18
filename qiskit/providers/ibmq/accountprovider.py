@@ -27,6 +27,9 @@ from .ibmqbackend import IBMQBackend, IBMQSimulator
 from .credentials import Credentials
 from .ibmqbackendservice import IBMQBackendService
 from .utils.json_decoder import decode_backend_configuration
+from .ibmqservice import IBMQService
+from .circuits.ibmqcircuitservice import IBMQCircuitService
+from .circuits.ibmqcircuit import IBMQCircuit
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +95,15 @@ class AccountProvider(BaseProvider):
         # Initialize the internal list of backends.
         self._backends = self._discover_remote_backends()
         self.backends = IBMQBackendService(self)  # type: ignore[assignment]
+        self.circuit = IBMQCircuitService(self)
+
+    def services(self) -> List[IBMQService]:
+        """Return a list of available services.
+
+        Returns:
+            A list of available services.
+        """
+        return [self.backends, self.circuit]
 
     def backends(self, name: Optional[str] = None, **kwargs: Any) -> List[IBMQBackend]:
         """Return all backends accessible via this provider, subject to optional filtering."""
@@ -140,6 +152,28 @@ class AccountProvider(BaseProvider):
                     type(ex).__name__, ex)
 
         return ret
+
+    def circuits(self) -> List[IBMQCircuit]:
+        """Return all circuits available from this provider.
+
+        Returns:
+            All available circuits.
+        """
+        return self.circuit.instances()
+
+    def get_circuit(self, name) -> IBMQCircuit:
+        """Return the specified circuit.
+
+        Args:
+            name: Name of the circuit.
+
+        Returns:
+            The named circuit.
+
+        Raises:
+            IBMQCircuitNotFound: If the circuit is not found.
+        """
+        return self.circuit.get_instance(name)
 
     def __eq__(  # type: ignore[override]
             self,

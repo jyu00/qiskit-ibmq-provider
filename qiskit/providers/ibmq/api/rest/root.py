@@ -23,6 +23,7 @@ from qiskit.providers.ibmq.utils.utils import filter_data
 from .base import RestAdapterBase
 from .backend import Backend
 from .job import Job
+from .circuit import Circuit
 from .utils.data_mapper import map_job_response
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class Api(RestAdapterBase):
         'hubs': '/Network',
         'jobs': '/Jobs',
         'jobs_status': '/Jobs/status/v/1',
-        'circuit': '/qcircuit',
+        'circuits': '/circuits',
         'version': '/version'
     }
 
@@ -58,9 +59,20 @@ class Api(RestAdapterBase):
             job_id: ID of the job.
 
         Returns:
-            The backend adapter.
+            The job adapter.
         """
         return Job(self.session, job_id)
+
+    def circuit(self, circuit_name: str) -> Circuit:
+        """Return an adapter for the circuit.
+
+        Args:
+            circuit_name: Name of the circuit.
+
+        Returns:
+            The circuit adapter.
+        """
+        return Circuit(self.session, circuit_name)
 
     def backends(self, timeout: Optional[float] = None) -> List[Dict[str, Any]]:
         """Return a list of backends.
@@ -158,24 +170,14 @@ class Api(RestAdapterBase):
 
         return self.session.post(url, json=payload).json()
 
-    def circuit(self, name: str, **kwargs: Any) -> Dict[str, Any]:
-        """Execute a Circuit.
-
-        Args:
-            name: Name of the Circuit.
-            **kwargs: Arguments for the Circuit.
+    def circuits(self) -> List[Dict[str, Any]]:
+        """Return a list of circuits.
 
         Returns:
             JSON response.
         """
-        url = self.get_url('circuit')
-
-        payload = {
-            'name': name,
-            'params': kwargs
-        }
-
-        return self.session.post(url, json=payload).json()
+        url = self.get_url('circuits')
+        return self.session.post(url).json()
 
     def version(self) -> Dict[str, Any]:
         """Return the API versions.
