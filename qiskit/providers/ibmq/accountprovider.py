@@ -103,7 +103,7 @@ class AccountProvider(BaseProvider):
         Returns:
             A list of available services.
         """
-        return [self.backends, self.circuit]
+        return [self.backends, self.circuit]  # type: ignore[list-item]
 
     def backends(self, name: Optional[str] = None, **kwargs: Any) -> List[IBMQBackend]:
         """Return all backends accessible via this provider, subject to optional filtering."""
@@ -161,7 +161,7 @@ class AccountProvider(BaseProvider):
         """
         return self.circuit.instances()
 
-    def get_circuit(self, name) -> IBMQCircuit:
+    def get_circuit(self, name: str) -> IBMQCircuit:
         """Return the specified circuit.
 
         Args:

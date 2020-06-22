@@ -15,8 +15,9 @@
 """Circuit REST adapter."""
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import json
+import os
 
 from .base import RestAdapterBase
 from ..session import RetrySession
@@ -32,15 +33,17 @@ class Circuit(RestAdapterBase):
         'compile': '/compiled'
     }
 
-    def __init__(self, session: RetrySession, circuit_name: str) -> None:
+    def __init__(self, session: RetrySession, circuit_name: Optional[str]) -> None:
         """Circuit constructor.
 
         Args:
             session: Session to be used in the adapter.
             circuit_name: Name of the circuit.
         """
+        self.base_url = os.getenv('QE_CIRCUIT_URL')
         self._circuit_name = circuit_name
-        super().__init__(session, '/circuits/{}'.format(circuit_name))
+        url_prefix = '/circuits/{}'.format(circuit_name) if circuit_name else '/circuits'
+        super().__init__(session, url_prefix)
 
     def get(self) -> Dict[str, Any]:
         """Return circuit information.
@@ -49,20 +52,9 @@ class Circuit(RestAdapterBase):
             JSON response of circuit information.
         """
         url = self.get_url('self')
-        fake_response = {
-            "name": "circuit1",
-            "description": "test description",
-            "arguments": [{
-                "name": "test_arg",
-                "description": "test argument",
-                "type": "int",
-                "required": False,
-            }]
-        }
-        return fake_response
-        # return self.session.get(url).json()
+        return self.session.get(url, bare=True).json()
 
-    def compile(self, output_format, **arguments) -> Dict[str, Any]:
+    def compile(self, output_format: str, **arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Compile the circuit with the input arguments.
 
         Args:
@@ -77,10 +69,25 @@ class Circuit(RestAdapterBase):
             'arguments': json.dumps(arguments),
             'output_format': output_format
         }
-        # response = self.session.get(url, params=params).json()
-        fake_response = {
-            'format': 'QASM',
-            'circuit': 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[2];\ncreg c[2];\nh q[0];\n'
-        }
-        return fake_response
-        # return response
+        response = self.session.get(url, params=params, bare=True).json()
+        return response
+
+    def circuits(self) -> List[Dict[str, Any]]:
+        """Return a list of circuits.
+
+        Returns:
+            JSON response.
+        """
+        url = self.get_url('self')
+        return self.session.get(url, bare=True).json()
+
+    def get_url(self, identifier: str) -> str:
+        """Return the resolved URL for the specified identifier.
+
+        Args:
+            identifier: Internal identifier of the endpoint.
+
+        Returns:
+            The resolved URL of the endpoint (relative to the session base URL).
+        """
+        return '{}{}'.format(self.base_url + self.prefix_url, self.URL_MAP[identifier])

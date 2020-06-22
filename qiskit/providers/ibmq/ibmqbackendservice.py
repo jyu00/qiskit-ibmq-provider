@@ -58,6 +58,7 @@ class IBMQBackendService(SimpleNamespace):
 
         job = provider.backends.retrieve_job(<JOB_ID>)
     """
+    # TODO inherit from IBMQService
 
     def __init__(self, provider: 'accountprovider.AccountProvider') -> None:
         """IBMQBackendService constructor.

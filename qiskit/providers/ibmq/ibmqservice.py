@@ -22,6 +22,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
 
+from qiskit.providers.ibmq import accountprovider  # pylint: disable=unused-import
+
 from .utils.utils import to_python_identifier
 from .api.exceptions import RequestsApiError
 
@@ -33,7 +35,7 @@ class IBMQService(ABC):
 
     _service_name = 'service'
 
-    def __init__(self, provider: 'AccountProvider'):
+    def __init__(self, provider: 'accountprovider.AccountProvider') -> None:
         """Base class for services.
 
         Args:
@@ -41,7 +43,7 @@ class IBMQService(ABC):
         """
         self._provider = provider
         self._api = provider._api
-        self._instances = {}
+        self._instances = {}  # type: Dict[str, Any]
         self._initialized = False
 
     def _discover_instances(self) -> None:
@@ -58,9 +60,10 @@ class IBMQService(ABC):
                     inst_id, instance = self._to_service_instance(raw_config)
                     self._instances[inst_id] = instance
                 self.__dict__.update(self._instances)
-            except RequestsApiError:
+            except RequestsApiError as err:
                 logger.warning("Unable to retrieve %s information. "
-                               "Please try again later.", self._service_name)
+                               "Please try again later. Error: %s: %s", self._service_name,
+                               str(type(err)), err)
                 return
 
             self._initialized = True
@@ -118,7 +121,7 @@ class IBMQService(ABC):
             inst_python_id += '_'
         return inst_python_id
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Rediscover service instances."""
         self._initialized = False
         self._discover_instances()
@@ -129,15 +132,15 @@ class IBMQService(ABC):
         return list(self._instances.values())
 
     @abstractmethod
-    def get_instance(self, **kwargs) -> Any:
+    def get_instance(self, **kwargs: Any) -> Any:
         """Return a specific service instance."""
         pass
 
-    def __dir__(self):
+    def __dir__(self) -> Dict:
         self._discover_instances()
         return self.__dict__
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: Any) -> Any:
         self._discover_instances()
         try:
             return self._instances[item]

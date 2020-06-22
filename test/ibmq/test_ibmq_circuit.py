@@ -15,10 +15,13 @@
 """Test IBMQ circuit service."""
 
 import random
+from typing import List, Optional
 
 from qiskit.circuit.quantumcircuit import QuantumCircuit
 from qiskit.providers.ibmq.circuits.ibmqcircuit import IBMQCircuit, IBMQCircuitArguments
 from qiskit.providers.ibmq.circuits.exceptions import IBMQCircuitNotFound, IBMQCircuitBadArguments
+from qiskit.providers.ibmq.api.exceptions import RequestsApiError
+from qiskit.providers.ibmq.utils.utils import to_python_identifier
 
 from ..ibmqtestcase import IBMQTestCase
 from ..decorators import requires_provider
@@ -63,25 +66,27 @@ class TestIBMQCircuit(IBMQTestCase):
     def test_get_phantom_circuit(self):
         """Test retrieving a phantom circuit."""
         self.provider.circuits()    # Make sure circuits are initialized.
-        with self.assertRaises(IBMQCircuitNotFound) as cm:
+        with self.assertRaises(IBMQCircuitNotFound) as manager:
             self.provider.get_circuit('phantom_circuit')
-        self.assertIn('phantom_circuit', cm.exception.message)
+        self.assertIn('phantom_circuit', manager.exception.message)
 
-        # TODO re-enable when server error is known
-        # self.provider.circuit._initialized = False  # Invalidate the initialized circuits.
-        # self.assertRaises(IBMQCircuitNotFound, self.provider.get_circuit('phantom_circuit'))
+        self.provider.circuit._initialized = False  # Invalidate the initialized circuits.
+        with self.assertRaises(RequestsApiError) as manager:
+            self.provider.get_circuit('phantom_circuit')
+        self.assertIn('phantom_circuit', manager.exception.message)
 
     def test_referencing_circuit(self):
         """Test referencing a circuit as an attribute."""
         circuit_name = self.provider.circuits()[0].name
-        circ = eval('self.provider.circuit.' + circuit_name)
+        circuit_name_python = to_python_identifier(circuit_name)
+        circ = eval('self.provider.circuit.' + circuit_name_python)  # pylint: disable=eval-used
         self.assertIsInstance(circ, IBMQCircuit)
         self.assertEqual(circ.name, circuit_name)
 
     def test_circuit_instances_refresh(self):
         """Test refreshing circuit service instances."""
         self.provider.circuits()    # Make sure circuits are initialized.
-        self.provider.circuit.__dict__['bad_circuit'] = 'bad_circuit'
+        self.provider.circuit._instances['bad_circuit'] = 'bad_circuit'
         self.provider.circuit.refresh()
         self.assertNotIn('bad_circuit', self.provider.circuit.__dict__)
         self.assertNotIn('bad_circuit', [circ.name for circ in self.provider.circuits()])
@@ -135,11 +140,12 @@ class TestIBMQCircuit(IBMQTestCase):
         if not circuit:
             self.skipTest("Test requires a circuit with arguments.")
 
-        with self.assertRaises(IBMQCircuitBadArguments) as cm:
+        with self.assertRaises(IBMQCircuitBadArguments) as manager:
             circuit.compile(phantom_arg='foo')
-        self.assertIn('phantom_arg', cm.exception.message)
+        self.assertIn('phantom_arg', manager.exception.message)
 
     def test_compile_invalid_arg_type(self):
+        """Test compiling a circuit with an invalid argument type."""
         circuit = self._find_arg_type(self.provider.circuits(), None)
         if not circuit:
             self.skipTest("Test requires a circuit with arguments.")
@@ -148,11 +154,15 @@ class TestIBMQCircuit(IBMQTestCase):
         for arg in circuit.arguments:
             bad_args[arg.name] = {'life': 42}
 
-        # TODO reenable after code is done
-        # with self.assertRaises(IBMQCircuitBadArguments) as cm:
-        #     circuit.compile(**bad_args)
+        with self.assertRaises(IBMQCircuitBadArguments) as manager:
+            circuit.compile(**bad_args)
+        self.assertIn('dict', manager.exception.message)
 
-    def _find_arg_type(self, circuits, arg_required):
+    def _find_arg_type(
+            self,
+            circuits: List,
+            arg_required: Optional[bool]
+    ) -> Optional[QuantumCircuit]:
         """Find a circuit with the specified argument requirement.
 
         Args:

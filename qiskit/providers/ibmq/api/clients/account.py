@@ -477,28 +477,9 @@ class AccountClient(BaseClient):
         Returns:
             Circuits available for this provider.
         """
-        fake_response = [
-            {"name": "circuit1",
-             "description": "description1",
-             "arguments": [{
-                "name": "arg1",
-                "description": "first argument",
-                "type": "int",
-                "required": False,
-             }]},
-            {"name": "circuit2",
-             "description": "description2",
-             "arguments": [{
-                 "name": "arg2",
-                 "description": "circ2 argument",
-                 "type": "int",
-                 "required": True,
-             }]}
-        ]
-        return fake_response
-        # return self.client_api.circuits()
+        return self.client_api.circuit(None).circuits()
 
-    def circuit_get(self, circuit_name: str):
+    def circuit_get(self, circuit_name: str) -> Dict[str, Any]:
         """Return information about the circuit.
 
         Args:

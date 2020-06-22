@@ -27,25 +27,19 @@ Classes
 .. autosummary::
     :toctree: ../stubs/
 
-    IBMQJob
-    QueueInfo
-
-Functions
-=========
-
-.. autosummary::
-    :toctree: ../stubs/
-
-    job_monitor
+    IBMQCircuitService
+    IBMQCircuit
 
 Exception
 =========
 .. autosummary::
     :toctree: ../stubs/
 
-    IBMQJobError
-    IBMQJobApiError
-    IBMQJobFailureError
-    IBMQJobInvalidStateError
-    IBMQJobTimeoutError
+    IBMQCircuitError
+    IBMQCircuitNotFound
+    IBMQCircuitBadArguments
 """
+
+from .ibmqcircuit import IBMQCircuit
+from .ibmqcircuitservice import IBMQCircuitService
+from .exceptions import IBMQCircuitError, IBMQCircuitNotFound, IBMQCircuitBadArguments

@@ -49,7 +49,7 @@ class IBMQCircuitService(IBMQService):
         circ_id = self._to_unique_python_identifier(raw_data['name'])
         return circ_id, IBMQCircuit(provider=self._provider, **raw_data)
 
-    def get_instance(self, name: str) -> IBMQCircuit:
+    def get_instance(self, name: str) -> IBMQCircuit:  # type: ignore[override]
         """Return a specific circuit.
 
         Args:
@@ -61,6 +61,7 @@ class IBMQCircuitService(IBMQService):
         Raises:
             IBMQCircuitNotFound: If the circuit is not found.
         """
+        # pylint: disable=arguments-differ
         if self._initialized:
             for circ in self.instances():
                 if circ.name == name:

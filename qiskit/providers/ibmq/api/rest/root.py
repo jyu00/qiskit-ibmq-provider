@@ -63,7 +63,7 @@ class Api(RestAdapterBase):
         """
         return Job(self.session, job_id)
 
-    def circuit(self, circuit_name: str) -> Circuit:
+    def circuit(self, circuit_name: Optional[str]) -> Circuit:
         """Return an adapter for the circuit.
 
         Args:
@@ -169,15 +169,6 @@ class Api(RestAdapterBase):
             payload['tags'] = job_tags
 
         return self.session.post(url, json=payload).json()
-
-    def circuits(self) -> List[Dict[str, Any]]:
-        """Return a list of circuits.
-
-        Returns:
-            JSON response.
-        """
-        url = self.get_url('circuits')
-        return self.session.post(url).json()
 
     def version(self) -> Dict[str, Any]:
         """Return the API versions.
