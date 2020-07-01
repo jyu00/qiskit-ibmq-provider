@@ -54,15 +54,15 @@ class Circuit(RestAdapterBase):
         url = self.get_url('self')
         return self.session.get(url, bare=True).json()
 
-    def compile(self, output_format: str, **arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Compile the circuit with the input arguments.
+    def instantiate(self, output_format: str, **arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Instantiate the circuit with the input arguments.
 
         Args:
             output_format: Output format.
-            **arguments: Arguments used to compile the circuit.
+            **arguments: Arguments used to instantiate the circuit.
 
         Returns:
-            JSON response of the compiled circuit information.
+            JSON response of the circuit information.
         """
         url = self.get_url('compile')
         params = {

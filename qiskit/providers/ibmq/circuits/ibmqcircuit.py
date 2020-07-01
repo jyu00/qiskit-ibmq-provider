@@ -43,19 +43,19 @@ class IBMQCircuit:
             provider: Provider for this circuit.
             name: Circuit name.
             description: Circuit description.
-            arguments: A list of arguments for the circuit.
+            arguments: A list of parameters for the circuit.
         """
         self.provider = provider
         self._api = provider._api
         self.name = name
         self.description = description
-        self.arguments = [IBMQCircuitArguments.from_dict(raw_arg) for raw_arg in arguments]
+        self.parameters = [IBMQCircuitParameters.from_dict(raw_arg) for raw_arg in arguments]
 
-    def compile(self, **kwargs: Any) -> QuantumCircuit:
-        """Compile the circuit.
+    def instantiate(self, **kwargs: Any) -> QuantumCircuit:
+        """Instantiate the circuit with the input arguments.
 
         Args:
-            **kwargs: Arguments used to compile the circuit.
+            **kwargs: Arguments used to instantiate the circuit.
 
         Returns:
             Compiled circuit.
@@ -64,47 +64,36 @@ class IBMQCircuit:
             IBMQCircuitBadArguments: If an input argument is not valid.
             ApiIBMQProtocolError: If invalid data received from the server.
         """
-        # Check for extra arguments.
-        arg_names = [arg.name for arg in self.arguments]
-        extra_args = [user_arg for user_arg in kwargs if user_arg not in arg_names]
-        if extra_args:
+        # Check for extra parameters.
+        param_names = [param.name for param in self.parameters]
+        extra_params = [user_param for user_param in kwargs if user_param not in param_names]
+        if extra_params:
             raise IBMQCircuitBadArguments(
-                "{} are not valid arguments for {}".format(','.join(extra_args), self.name))
+                "{} are not valid parameters for {}".format(','.join(extra_params), self.name))
 
-        # Check for missing arguments.
-        missing_args = [arg.name for arg in self.arguments
-                        if arg.required and arg.name not in kwargs]
-        if missing_args:
+        # Check for missing parameters.
+        missing_params = [param.name for param in self.parameters
+                          if param.required and param.name not in kwargs]
+        if missing_params:
             raise IBMQCircuitBadArguments(
-                "Required arguments {} are missing.".format(','.join(missing_args)))
+                "Required parameters {} are missing.".format(','.join(missing_params)))
 
-        # Verify argument types.
-        arg_dict = {arg.name: arg for arg in self.arguments}
-        for user_arg_name, user_arg in kwargs.items():
-            try:
-                arg_type = eval(arg_dict[user_arg_name].type)   # pylint: disable=eval-used
-                if not isinstance(user_arg, arg_type):
-                    raise IBMQCircuitBadArguments("Argument {} should be type {}, not {}".format(
-                        user_arg_name, arg_type, type(user_arg)))
-            except AttributeError:
-                pass
-
-        raw_response = self._api.circuit_compile(self.name, CircuitOutputType.QASM, **kwargs)
+        raw_response = self._api.circuit_instantiate(self.name, CircuitOutputType.QASM, **kwargs)
         if raw_response['format'] != CircuitOutputType.QASM:
             raise ApiIBMQProtocolError("Invalid output format {} received from "
                                        "the server.".format(raw_response['format']))
         return QuantumCircuit.from_qasm_str(raw_response['circuit'])
 
-    def pprint(self):
+    def pprint(self) -> None:
         """Print a formatted description of this circuit."""
         formatted = '{}: {}\n  Provider: {}'.format(
             self.name, self.description, self.provider)
-        if self.arguments:
-            formatted += '\n  Arguments:'
-            for arg in self.arguments:
-                required = 'Required.' if arg.required else ''
+        if self.parameters:
+            formatted += '\n  Parameters:'
+            for param in self.parameters:
+                required = 'Required.' if param.required else ''
                 formatted += '\n    {} ({}): {}. {}'.format(
-                    arg.name, arg.type, arg.description, required)
+                    param.name, param.type, param.description, required)
         print(formatted)
 
     def __repr__(self) -> str:
@@ -113,21 +102,21 @@ class IBMQCircuit:
                                            self.provider)
 
     def __str__(self) -> str:
-        return "{}: {}. Arguments: {}".format(
-            self.name, self.description, ', '.join([arg.name for arg in self.arguments]))
+        return "{}: {}. Parameters: {}".format(
+            self.name, self.description, ', '.join([param.name for param in self.parameters]))
 
 
-class IBMQCircuitArguments:
-    """Arguments for an IBM Quantum Experience circuit."""
+class IBMQCircuitParameters:
+    """Parameters for an IBM Quantum Experience circuit."""
 
     def __init__(self, name: str, description: str, type: str, required: str) -> None:
-        """IBMQCircuitArguments constructor.
+        """IBMQCircuitParameters constructor.
 
         Args:
-            name: Name of the argument.
-            description: Description of the argument.
-            type: Argument type.
-            required: Whether the argument is required.
+            name: Name of the parameter.
+            description: Description of the parameter.
+            type: Parameter type.
+            required: Whether the parameter is required.
         """
         # pylint: disable=redefined-builtin
         self.name = name
@@ -136,7 +125,7 @@ class IBMQCircuitArguments:
         self.required = required
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'IBMQCircuitArguments':
+    def from_dict(cls, data: Dict[str, Any]) -> 'IBMQCircuitParameters':
         """Return an instance of this class based on input data.
 
         Args:

@@ -50,13 +50,13 @@ class IBMQCircuitService(IBMQService):
         return circ_id, IBMQCircuit(provider=self._provider, **raw_data)
 
     def get_instance(self, name: str) -> IBMQCircuit:  # type: ignore[override]
-        """Return a specific circuit.
+        """Return a specific circuit definition.
 
         Args:
             name: Name of the circuit.
 
         Returns:
-            The named circuit.
+            Definition of the named circuit.
 
         Raises:
             IBMQCircuitNotFound: If the circuit is not found.

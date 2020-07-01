@@ -153,22 +153,22 @@ class AccountProvider(BaseProvider):
 
         return ret
 
-    def circuits(self) -> List[IBMQCircuit]:
-        """Return all circuits available from this provider.
+    def circuit_definitions(self) -> List[IBMQCircuit]:
+        """Return the definitions of all available circuits.
 
         Returns:
-            All available circuits.
+            Definitions of all available circuits.
         """
         return self.circuit.instances()
 
-    def get_circuit(self, name: str) -> IBMQCircuit:
-        """Return the specified circuit.
+    def get_circuit_definition(self, name: str) -> IBMQCircuit:
+        """Return definition for the specified circuit.
 
         Args:
             name: Name of the circuit.
 
         Returns:
-            The named circuit.
+            Definition for the named circuit.
 
         Raises:
             IBMQCircuitNotFound: If the circuit is not found.

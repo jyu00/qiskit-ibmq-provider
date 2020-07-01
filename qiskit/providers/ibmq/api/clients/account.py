@@ -490,19 +490,19 @@ class AccountClient(BaseClient):
         """
         return self.client_api.circuit(circuit_name).get()
 
-    def circuit_compile(
+    def circuit_instantiate(
             self,
             circuit_name: str,
             output_format: str,
             **arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Compile the circuit with the given arguments.
+        """Instantiate the circuit with the given arguments.
 
         Args:
             circuit_name: Name of the circuit.
             output_format: Output format.
-            **arguments: Arguments used to compile the circuit.
+            **arguments: Arguments used to instantiate the circuit.
 
         Returns:
-            Compiled circuit.
+            Circuit instance data.
         """
-        return self.client_api.circuit(circuit_name).compile(output_format, **arguments)
+        return self.client_api.circuit(circuit_name).instantiate(output_format, **arguments)
