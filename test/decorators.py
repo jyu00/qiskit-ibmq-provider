@@ -194,6 +194,8 @@ def requires_device(func):
     @requires_qe_access
     def _wrapper(obj, *args, **kwargs):
 
+        qe_token = kwargs.get('qe_token')
+        qe_url = kwargs.get('qe_url')
         _enable_account(kwargs.pop('qe_token'), kwargs.pop('qe_url'))
 
         backend_name = os.getenv('QE_STAGING_DEVICE', None) if \
@@ -201,6 +203,11 @@ def requires_device(func):
 
         _backend = None
         provider = _get_custom_provider(IBMQ) or list(IBMQ._providers.values())[0]
+
+        if os.getenv('USE_STAGING_CREDENTIALS', ''):
+            backends = provider.backends(
+                simulator=False, filters=lambda b: b.configuration().n_qubits >= 5)
+            print(">>>>> using qe token {}, url {}, provider {}, backends {}".format(qe_token[:5], qe_url, provider, backends))
 
         if backend_name:
             # Put desired provider as the first in the list.
