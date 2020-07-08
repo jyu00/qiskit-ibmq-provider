@@ -89,7 +89,8 @@ class TestIBMQCircuit(IBMQTestCase):
         self.provider.circuit._instances['bad_circuit'] = 'bad_circuit'
         self.provider.circuit.refresh()
         self.assertNotIn('bad_circuit', self.provider.circuit.__dict__)
-        self.assertNotIn('bad_circuit', [circ.name for circ in self.provider.list_circuit_definitions()])
+        self.assertNotIn('bad_circuit',
+                         [circ.name for circ in self.provider.list_circuit_definitions()])
 
     def test_instantiate_all_args(self):
         """Test instantiating a circuit with all parameters"""
