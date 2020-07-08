@@ -153,7 +153,7 @@ class AccountProvider(BaseProvider):
 
         return ret
 
-    def circuit_definitions(self) -> List[IBMQCircuit]:
+    def list_circuit_definitions(self) -> List[IBMQCircuit]:
         """Return the definitions of all available circuits.
 
         Returns:
@@ -161,7 +161,7 @@ class AccountProvider(BaseProvider):
         """
         return self.circuit.instances()
 
-    def get_circuit_definition(self, name: str) -> IBMQCircuit:
+    def circuit_definition(self, name: str) -> IBMQCircuit:
         """Return definition for the specified circuit.
 
         Args:

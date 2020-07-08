@@ -40,15 +40,15 @@ class TestIBMQCircuit(IBMQTestCase):
 
     def test_list_all_circuits(self):
         """Test listing all circuits."""
-        circuits = self.provider.circuit_definitions()
+        circuits = self.provider.list_circuit_definitions()
         self.assertTrue(circuits)
         for circ in circuits:
             self.assertIsInstance(circ, IBMQCircuit)
 
     def test_get_single_circuit(self):
         """Test retrieving a single circuit."""
-        circuit = self.provider.circuit_definitions()[0]
-        rcircuit = self.provider.get_circuit_definition(circuit.name)
+        circuit = self.provider.list_circuit_definitions()[0]
+        rcircuit = self.provider.circuit_definition(circuit.name)
         self.assertIsInstance(rcircuit, IBMQCircuit)
         for arg in rcircuit.parameters:
             self.assertIsInstance(arg, IBMQCircuitParameters)
@@ -56,28 +56,28 @@ class TestIBMQCircuit(IBMQTestCase):
 
     def test_get_single_circuit_no_cache(self):
         """Test retrieving a single circuit from the server."""
-        circuit_name = self.provider.circuit_definitions()[0].name
+        circuit_name = self.provider.list_circuit_definitions()[0].name
         # Invalidate the initialized circuits.
         self.provider.circuit._initialized = False
-        rcircuit = self.provider.get_circuit_definition(circuit_name)
+        rcircuit = self.provider.circuit_definition(circuit_name)
         self.assertIsInstance(rcircuit, IBMQCircuit)
         self.assertEqual(circuit_name, rcircuit.name)
 
     def test_get_phantom_circuit(self):
         """Test retrieving a phantom circuit."""
-        self.provider.circuit_definitions()    # Make sure circuits are initialized.
+        self.provider.list_circuit_definitions()    # Make sure circuits are initialized.
         with self.assertRaises(IBMQCircuitNotFound) as manager:
-            self.provider.get_circuit_definition('phantom_circuit')
+            self.provider.circuit_definition('phantom_circuit')
         self.assertIn('phantom_circuit', manager.exception.message)
 
         self.provider.circuit._initialized = False  # Invalidate the initialized circuits.
         with self.assertRaises(RequestsApiError) as manager:
-            self.provider.get_circuit_definition('phantom_circuit')
+            self.provider.circuit_definition('phantom_circuit')
         self.assertIn('phantom_circuit', manager.exception.message)
 
     def test_referencing_circuit(self):
         """Test referencing a circuit as an attribute."""
-        circuit_name = self.provider.circuit_definitions()[0].name
+        circuit_name = self.provider.list_circuit_definitions()[0].name
         circuit_name_python = to_python_identifier(circuit_name)
         circ = eval('self.provider.circuit.' + circuit_name_python)  # pylint: disable=eval-used
         self.assertIsInstance(circ, IBMQCircuit)
@@ -85,15 +85,15 @@ class TestIBMQCircuit(IBMQTestCase):
 
     def test_circuit_instances_refresh(self):
         """Test refreshing circuit service instances."""
-        self.provider.circuit_definitions()    # Make sure circuits are initialized.
+        self.provider.list_circuit_definitions()    # Make sure circuits are initialized.
         self.provider.circuit._instances['bad_circuit'] = 'bad_circuit'
         self.provider.circuit.refresh()
         self.assertNotIn('bad_circuit', self.provider.circuit.__dict__)
-        self.assertNotIn('bad_circuit', [circ.name for circ in self.provider.circuit_definitions()])
+        self.assertNotIn('bad_circuit', [circ.name for circ in self.provider.list_circuit_definitions()])
 
     def test_instantiate_all_args(self):
         """Test instantiating a circuit with all parameters"""
-        good_circs = [circ for circ in self.provider.circuit_definitions() if circ.parameters]
+        good_circs = [circ for circ in self.provider.list_circuit_definitions() if circ.parameters]
         if not good_circs:
             self.skipTest("Test requires a circuit with parameters.")
         circ = good_circs[random.randrange(len(good_circs))]
@@ -106,7 +106,7 @@ class TestIBMQCircuit(IBMQTestCase):
     def test_instantiate_only_required_args(self):
         """Test instantiating a circuit with only required parameters."""
         good_circ = None
-        for circ in self.provider.circuit_definitions():
+        for circ in self.provider.list_circuit_definitions():
             args_found = {'required': False, 'optional': False}
             for param in circ.parameters:
                 if param.required:
@@ -129,14 +129,14 @@ class TestIBMQCircuit(IBMQTestCase):
 
     def test_instantiate_missing_required_args(self):
         """Test instantiating a circuit with missing required arguments."""
-        good_circ = self._find_arg_type(self.provider.circuit_definitions(), True)
+        good_circ = self._find_arg_type(self.provider.list_circuit_definitions(), True)
         if not good_circ:
             self.skipTest("Test requires a circuit with required arguments.")
         self.assertRaises(IBMQCircuitBadArguments, good_circ.instantiate())
 
     def test_instantiate_invalid_arg_name(self):
         """Test instantiating a circuit with an invalid argument name."""
-        circuit = self._find_arg_type(self.provider.circuit_definitions(), None)
+        circuit = self._find_arg_type(self.provider.list_circuit_definitions(), None)
         if not circuit:
             self.skipTest("Test requires a circuit with arguments.")
 
