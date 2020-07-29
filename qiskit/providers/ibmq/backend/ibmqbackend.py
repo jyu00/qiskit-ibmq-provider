@@ -28,21 +28,22 @@ from qiskit.providers.models import (BackendStatus, BackendProperties,
 from qiskit.tools.events.pubsub import Publisher
 from qiskit.providers.models import (QasmBackendConfiguration,
                                      PulseBackendConfiguration)
-
 from qiskit.providers.ibmq import accountprovider  # pylint: disable=unused-import
-from .apiconstants import ApiJobShareLevel, ApiJobStatus, API_JOB_FINAL_STATES
-from .job.utils import api_status_to_job_status
-from .api.clients import AccountClient
-from .api.exceptions import ApiError
+
 from .backendjoblimit import BackendJobLimit
-from .credentials import Credentials
-from .exceptions import (IBMQBackendError, IBMQBackendValueError,
-                         IBMQBackendApiError, IBMQBackendApiProtocolError,
-                         IBMQBackendJobLimitError)
-from .job import IBMQJob
-from .utils import update_qobj_config, validate_job_tags
-from .utils.converters import utc_to_local_all, local_to_utc
-from .utils.json_decoder import decode_pulse_defaults, decode_backend_properties
+from .backendreservation import BackendReservation
+from .utils import convert_reservation_data
+from .exceptions import (IBMQBackendError, IBMQBackendValueError, IBMQBackendApiError,
+                         IBMQBackendApiProtocolError, IBMQBackendJobLimitError)
+from ..apiconstants import ApiJobShareLevel, ApiJobStatus, API_JOB_FINAL_STATES
+from ..job import IBMQJob
+from ..job.utils import api_status_to_job_status
+from ..api.clients import AccountClient
+from ..api.exceptions import ApiError
+from ..credentials import Credentials
+from ..utils import update_qobj_config, validate_job_tags
+from ..utils.converters import utc_to_local_all, local_to_utc
+from ..utils.json_decoder import decode_pulse_defaults, decode_backend_properties
 
 logger = logging.getLogger(__name__)
 
@@ -514,6 +515,32 @@ class IBMQBackend(BaseBackend):
 
         return job
 
+    def reservations(
+            self,
+            start_datetime: Optional[python_datetime] = None,
+            end_datetime: Optional[python_datetime] = None
+    ) -> List[BackendReservation]:
+        """Return backend reservations.
+
+        If start_datetime and/or end_datetime is specified, reservations with
+        time slots that overlap with the specified time window will be returned.
+
+        Some of the reservation information, such as scheduling mode, is only
+        available if you are the owner of the reservation.
+
+        Args:
+            start_datetime: Filter by the given start date/time, in local timezone.
+            end_datetime: Filter by the given end date/time, in local timezone.
+
+        Returns:
+            A list of reservations that match the criteria.
+        """
+        start_datetime = local_to_utc(start_datetime) if start_datetime else None
+        end_datetime = local_to_utc(end_datetime) if end_datetime else None
+        raw_response = self._api_client.backend_reservations(
+            self.name(), start_datetime, end_datetime)
+        return convert_reservation_data(raw_response, self.name())
+
     def __repr__(self) -> str:
         credentials_info = ''
         if self.hub:
@@ -622,6 +649,13 @@ class IBMQRetiredBackend(IBMQBackend):
     def active_jobs(self, limit: int = 10) -> None:
         """Return the unfinished jobs submitted to this backend."""
         return None
+
+    def reservations(
+            self,
+            start_datetime: Optional[python_datetime] = None,
+            end_datetime: Optional[python_datetime] = None
+    ) -> List[BackendReservation]:
+        return []
 
     def run(
             self,

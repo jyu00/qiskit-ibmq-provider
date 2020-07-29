@@ -25,13 +25,16 @@ from qiskit.providers import JobStatus, QiskitBackendNotFoundError  # type: igno
 from qiskit.providers.providerutils import filter_backends
 from qiskit.providers.ibmq import accountprovider  # pylint: disable=unused-import
 
-from .api.exceptions import ApiError
-from .apiconstants import ApiJobStatus
-from .exceptions import (IBMQBackendValueError, IBMQBackendApiError, IBMQBackendApiProtocolError)
 from .ibmqbackend import IBMQBackend, IBMQRetiredBackend
-from .job import IBMQJob
-from .utils.utils import to_python_identifier, validate_job_tags, filter_data
-from .utils.converters import local_to_utc
+from .backendreservation import BackendReservation
+from .exceptions import (IBMQBackendValueError, IBMQBackendApiError, IBMQBackendApiProtocolError)
+from .utils import convert_reservation_data
+from ..api.exceptions import ApiError
+from ..apiconstants import ApiJobStatus
+from ..api.clients.account import AccountClient
+from ..job import IBMQJob
+from ..utils.utils import to_python_identifier, validate_job_tags, filter_data
+from ..utils.converters import local_to_utc
 
 logger = logging.getLogger(__name__)
 
@@ -59,15 +62,21 @@ class IBMQBackendService:
         job = provider.backends.retrieve_job(<JOB_ID>)
     """
 
-    def __init__(self, provider: 'accountprovider.AccountProvider') -> None:
+    def __init__(
+            self,
+            provider: 'accountprovider.AccountProvider',
+            api_client: AccountClient
+    ) -> None:
         """IBMQBackendService constructor.
 
         Args:
             provider: IBM Quantum Experience account provider.
+            api_client: Client used to communicate with IBM Quantum Experience.
         """
         super().__init__()
 
         self._provider = provider
+        self._api_client = api_client
         self._discover_backends()
 
     def _discover_backends(self) -> None:
@@ -244,7 +253,7 @@ class IBMQBackendService:
         initial_filter = copy.deepcopy(api_filter)
 
         while True:
-            job_page = self._provider._api_client.list_jobs_statuses(
+            job_page = self._api_client.list_jobs_statuses(
                 limit=current_page_limit, skip=skip, descending=descending,
                 extra_filter=api_filter)
             if logger.getEffectiveLevel() is logging.DEBUG:
@@ -299,9 +308,9 @@ class IBMQBackendService:
                 backend = IBMQRetiredBackend.from_name(backend_name,
                                                        self._provider,
                                                        self._provider.credentials,
-                                                       self._provider._api_client)
+                                                       self._api_client)
             try:
-                job = IBMQJob(backend=backend, api_client=self._provider._api_client, **job_info)
+                job = IBMQJob(backend=backend, api_client=self._api_client, **job_info)
             except TypeError:
                 logger.warning('Discarding job "%s" because it contains invalid data.', job_id)
                 continue
@@ -453,7 +462,7 @@ class IBMQBackendService:
                  from the server.
         """
         try:
-            job_info = self._provider._api_client.job_get(job_id)
+            job_info = self._api_client.job_get(job_id)
         except ApiError as ex:
             raise IBMQBackendApiError('Failed to get job {}: {}'
                                       .format(job_id, str(ex))) from ex
@@ -466,15 +475,24 @@ class IBMQBackendService:
             backend = IBMQRetiredBackend.from_name(backend_name,
                                                    self._provider,
                                                    self._provider.credentials,
-                                                   self._provider._api_client)
+                                                   self._api_client)
         try:
-            job = IBMQJob(backend=backend, api_client=self._provider._api_client, **job_info)
+            job = IBMQJob(backend=backend, api_client=self._api_client, **job_info)
         except TypeError as ex:
             raise IBMQBackendApiProtocolError(
                 'Unexpected return value received from the server '
                 'when retrieving job {}: {}'.format(job_id, str(ex))) from ex
 
         return job
+
+    def my_reservations(self) -> List[BackendReservation]:
+        """Return your upcoming reservations.
+
+        Returns:
+            A list of your upcoming reservations.
+        """
+        raw_response = self._api_client.my_reservations()
+        return convert_reservation_data(raw_response)
 
     @staticmethod
     def _deprecated_backend_names() -> Dict[str, str]:

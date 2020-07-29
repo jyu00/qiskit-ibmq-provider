@@ -23,9 +23,9 @@ from qiskit.providers.models import (QasmBackendConfiguration,
                                      PulseBackendConfiguration)
 
 from .api.clients import AccountClient
-from .ibmqbackend import IBMQBackend, IBMQSimulator
+from .backend.ibmqbackend import IBMQBackend, IBMQSimulator
+from .backend.ibmqbackendservice import IBMQBackendService
 from .credentials import Credentials
-from .ibmqbackendservice import IBMQBackendService
 from .utils.json_decoder import decode_backend_configuration
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class AccountProvider(BaseProvider):
 
         # Initialize the internal list of backends.
         self._backends = self._discover_remote_backends()
-        self.backends = IBMQBackendService(self)  # type: ignore[assignment]
+        self.backends = IBMQBackendService(self, self._api_client)  # type: ignore[assignment]
 
     def backends(self, name: Optional[str] = None, **kwargs: Any) -> List[IBMQBackend]:
         """Return all backends accessible via this provider, subject to optional filtering."""
