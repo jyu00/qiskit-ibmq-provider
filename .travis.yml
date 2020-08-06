@@ -37,6 +37,7 @@ stage_generic: &stage_generic
     - pip install -U -c constraints.txt -r requirements.txt
     - pip install -U -c constraints.txt -r requirements-dev.txt
     - pip install -c constraints.txt -e .
+    - pip install --upgrade git+https://github.com/Qiskit/qiskit-terra.git
   script:
     # Run the tests.
     - make test
@@ -155,6 +156,8 @@ jobs:
       if: type != cron
       dist: xenial
       python: 3.8
+      env:
+        - QISKIT_TESTS=run_slow
 
     # OSX, Python 3.5.6 (via pyenv)
     - stage: test
