@@ -27,8 +27,8 @@ Classes
 .. autosummary::
     :toctree: ../stubs/
 
-    IBMQCircuitService
-    IBMQCircuit
+    CircuitService
+    CircuitDefinition
 
 Exception
 =========
@@ -40,6 +40,6 @@ Exception
     IBMQCircuitBadArguments
 """
 
-from .ibmqcircuit import IBMQCircuit
-from .ibmqcircuitservice import IBMQCircuitService
+from .circuitdefinition import CircuitDefinition
+from .circuitservice import CircuitService
 from .exceptions import IBMQCircuitError, IBMQCircuitNotFound, IBMQCircuitBadArguments

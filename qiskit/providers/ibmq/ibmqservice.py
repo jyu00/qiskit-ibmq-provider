@@ -35,14 +35,19 @@ class IBMQService(ABC):
 
     _service_name = 'service'
 
-    def __init__(self, provider: 'accountprovider.AccountProvider') -> None:
+    def __init__(
+            self,
+            provider: 'accountprovider.AccountProvider',
+            access_token: str
+    ) -> None:
         """Base class for services.
 
         Args:
             provider: Provider responsible for this service.
+            access_token: IBM Quantum Experience access token.
         """
         self._provider = provider
-        self._api = provider._api
+        self._access_token = access_token
         self._instances = {}  # type: Dict[str, Any]
         self._initialized = False
 

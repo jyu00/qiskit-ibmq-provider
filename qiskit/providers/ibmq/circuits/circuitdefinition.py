@@ -23,33 +23,36 @@ from qiskit.providers.ibmq import accountprovider  # pylint: disable=unused-impo
 from .apiconstants import CircuitOutputType
 from .exceptions import IBMQCircuitBadArguments
 from ..api.exceptions import ApiIBMQProtocolError
+from ..api.clients.circuit import CircuitClient
 
 logger = logging.getLogger(__name__)
 
 
-class IBMQCircuit:
-    """An IBM Quantum Experience circuit instance."""
+class CircuitDefinition:
+    """An circuit definition instance."""
 
     def __init__(
             self,
             provider: 'accountprovider.AccountProvider',
+            api_client: CircuitClient,
             name: str,
             description: str,
             arguments: List[Dict[str, Any]]
     ):
-        """IBMQCircuit constructor.
+        """CircuitDefinition constructor.
 
         Args:
             provider: Provider for this circuit.
+            api_client: Client for accessing the API.
             name: Circuit name.
             description: Circuit description.
             arguments: A list of parameters for the circuit.
         """
-        self.provider = provider
-        self._api = provider._api
-        self.name = name
-        self.description = description
-        self.parameters = [IBMQCircuitParameters.from_dict(raw_arg) for raw_arg in arguments]
+        self._provider = provider
+        self._api_client = api_client
+        self._name = name
+        self._description = description
+        self._parameters = [CircuitParameterDefinition.from_dict(raw_arg) for raw_arg in arguments]
 
     def instantiate(self, **kwargs: Any) -> QuantumCircuit:
         """Instantiate the circuit with the input arguments.
@@ -78,7 +81,8 @@ class IBMQCircuit:
             raise IBMQCircuitBadArguments(
                 "Required parameters {} are missing.".format(','.join(missing_params)))
 
-        raw_response = self._api.circuit_instantiate(self.name, CircuitOutputType.QASM, **kwargs)
+        raw_response = self._api_client.circuit_instantiate(
+            self.name, CircuitOutputType.QASM, **kwargs)
         if raw_response['format'] != CircuitOutputType.QASM:
             raise ApiIBMQProtocolError("Invalid output format {} received from "
                                        "the server.".format(raw_response['format']))
@@ -96,6 +100,26 @@ class IBMQCircuit:
                     param.name, param.type, param.description, required)
         print(formatted)
 
+    @property
+    def provider(self):
+        """Return the provider."""
+        return self._provider
+
+    @property
+    def name(self):
+        """Return name of the circuit."""
+        return self._name
+
+    @property
+    def description(self):
+        """Return description of the circuit."""
+        return self._description
+
+    @property
+    def parameters(self):
+        """Return parameter definitions for the circuit."""
+        return self._parameters
+
     def __repr__(self) -> str:
         return "<{}('{}') from {}>".format(self.__class__.__name__,
                                            self.name,
@@ -106,11 +130,11 @@ class IBMQCircuit:
             self.name, self.description, ', '.join([param.name for param in self.parameters]))
 
 
-class IBMQCircuitParameters:
+class CircuitParameterDefinition:
     """Parameters for an IBM Quantum Experience circuit."""
 
     def __init__(self, name: str, description: str, type: str, required: str) -> None:
-        """IBMQCircuitParameters constructor.
+        """CircuitParameterDefinition constructor.
 
         Args:
             name: Name of the parameter.
@@ -125,7 +149,7 @@ class IBMQCircuitParameters:
         self.required = required
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'IBMQCircuitParameters':
+    def from_dict(cls, data: Dict[str, Any]) -> 'CircuitParameterDefinition':
         """Return an instance of this class based on input data.
 
         Args:

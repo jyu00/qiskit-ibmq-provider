@@ -15,10 +15,11 @@
 """Root REST adapter."""
 
 import logging
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any, Union, Optional
 from json import JSONDecodeError
 
 from .base import RestAdapterBase
+from .circuit import Circuit
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,9 @@ class Api(RestAdapterBase):
         'circuits': '/circuits'
     }
 
-# Client functions.
+    # Client functions.
 
-    def circuit(self, circuit_name: Optional[str]) -> Circuit:
+    def circuit_adapter(self, circuit_name: str) -> Circuit:
         """Return an adapter for the circuit.
 
         Args:
@@ -47,6 +48,17 @@ class Api(RestAdapterBase):
             The circuit adapter.
         """
         return Circuit(self.session, circuit_name)
+
+    # Request functions.
+
+    def circuits(self) -> List[Dict[str, Any]]:
+        """Return a list of circuits.
+
+        Returns:
+            JSON response.
+        """
+        url = self.get_url('circuits')
+        return self.session.get(url).json()
 
     def hubs(self) -> List[Dict[str, Any]]:
         """Return the list of hub/group/project sets available to the user.

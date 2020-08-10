@@ -15,9 +15,8 @@
 """Circuit REST adapter."""
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 import json
-import os
 
 from .base import RestAdapterBase
 from ..session import RetrySession
@@ -33,16 +32,14 @@ class Circuit(RestAdapterBase):
         'compile': '/compiled'
     }
 
-    def __init__(self, session: RetrySession, circuit_name: Optional[str]) -> None:
+    def __init__(self, session: RetrySession, circuit_name: str) -> None:
         """Circuit constructor.
 
         Args:
             session: Session to be used in the adapter.
             circuit_name: Name of the circuit.
         """
-        self.base_url = os.getenv('QE_CIRCUIT_URL')
-        self._circuit_name = circuit_name
-        url_prefix = '/circuits/{}'.format(circuit_name) if circuit_name else '/circuits'
+        url_prefix = '/circuits/{}'.format(circuit_name)
         super().__init__(session, url_prefix)
 
     def get(self) -> Dict[str, Any]:
@@ -52,7 +49,7 @@ class Circuit(RestAdapterBase):
             JSON response of circuit information.
         """
         url = self.get_url('self')
-        return self.session.get(url, bare=True).json()
+        return self.session.get(url).json()
 
     def instantiate(self, output_format: str, **arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Instantiate the circuit with the input arguments.
@@ -69,25 +66,5 @@ class Circuit(RestAdapterBase):
             'arguments': json.dumps(arguments),
             'output_format': output_format
         }
-        response = self.session.get(url, params=params, bare=True).json()
+        response = self.session.get(url, params=params).json()
         return response
-
-    def circuits(self) -> List[Dict[str, Any]]:
-        """Return a list of circuits.
-
-        Returns:
-            JSON response.
-        """
-        url = self.get_url('self')
-        return self.session.get(url, bare=True).json()
-
-    def get_url(self, identifier: str) -> str:
-        """Return the resolved URL for the specified identifier.
-
-        Args:
-            identifier: Internal identifier of the endpoint.
-
-        Returns:
-            The resolved URL of the endpoint (relative to the session base URL).
-        """
-        return '{}{}'.format(self.base_url + self.prefix_url, self.URL_MAP[identifier])

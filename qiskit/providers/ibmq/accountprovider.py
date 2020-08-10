@@ -28,8 +28,8 @@ from .credentials import Credentials
 from .ibmqbackendservice import IBMQBackendService
 from .utils.json_decoder import decode_backend_configuration
 from .ibmqservice import IBMQService
-from .circuits.ibmqcircuitservice import IBMQCircuitService
-from .circuits.ibmqcircuit import IBMQCircuit
+from .circuits.circuitservice import CircuitService
+from .circuits.circuitdefinition import CircuitDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class AccountProvider(BaseProvider):
         # Initialize the internal list of backends.
         self._backends = self._discover_remote_backends()
         self.backends = IBMQBackendService(self)  # type: ignore[assignment]
-        self.circuit = IBMQCircuitService(self)
+        self.circuit = CircuitService(self, access_token)
 
     def services(self) -> List[IBMQService]:
         """Return a list of available services.
@@ -150,7 +150,7 @@ class AccountProvider(BaseProvider):
 
         return ret
 
-    def list_circuit_definitions(self) -> List[IBMQCircuit]:
+    def circuit_definitions(self) -> List[CircuitDefinition]:
         """Return the definitions of all available circuits.
 
         Returns:
@@ -158,7 +158,7 @@ class AccountProvider(BaseProvider):
         """
         return self.circuit.instances()
 
-    def circuit_definition(self, name: str) -> IBMQCircuit:
+    def circuit_definition(self, name: str) -> CircuitDefinition:
         """Return definition for the specified circuit.
 
         Args:
