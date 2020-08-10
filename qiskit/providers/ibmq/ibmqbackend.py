@@ -35,13 +35,16 @@ from .job.utils import api_status_to_job_status
 from .api.clients import AccountClient
 from .api.exceptions import ApiError
 from .backendjoblimit import BackendJobLimit
+from .backendreservation import BackendReservation
 from .credentials import Credentials
 from .exceptions import (IBMQBackendError, IBMQBackendValueError,
                          IBMQBackendApiError, IBMQBackendApiProtocolError,
                          IBMQBackendJobLimitError)
 from .job import IBMQJob
 from .utils import update_qobj_config, validate_job_tags
+from .utils.converters import utc_to_local_all, local_to_utc
 from .utils.json_decoder import decode_pulse_defaults, decode_backend_properties
+from .utils.backend import convert_reservation_data
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +95,7 @@ class IBMQBackend(BaseBackend):
             configuration: Union[QasmBackendConfiguration, PulseBackendConfiguration],
             provider: 'accountprovider.AccountProvider',
             credentials: Credentials,
-            api: AccountClient
+            api_client: AccountClient
     ) -> None:
         """IBMQBackend constructor.
 
@@ -100,11 +103,11 @@ class IBMQBackend(BaseBackend):
             configuration: Backend configuration.
             provider: IBM Quantum Experience account provider
             credentials: IBM Quantum Experience credentials.
-            api: IBM Quantum Experience client used to communicate with the server.
+            api_client: IBM Quantum Experience client used to communicate with the server.
         """
         super().__init__(provider=provider, configuration=configuration)
 
-        self._api = api
+        self._api_client = api_client
         self._credentials = credentials
         self.hub = credentials.hub
         self.group = credentials.group
@@ -209,7 +212,7 @@ class IBMQBackend(BaseBackend):
         """
         try:
             qobj_dict = qobj.to_dict()
-            submit_info = self._api.job_submit(
+            submit_info = self._api_client.job_submit(
                 backend_name=self.name(),
                 qobj_dict=qobj_dict,
                 job_name=job_name,
@@ -228,9 +231,10 @@ class IBMQBackend(BaseBackend):
 
         # Submission success.
         try:
-            job = IBMQJob(backend=self, api=self._api, qobj=qobj, **submit_info)
+            job = IBMQJob(backend=self, api_client=self._api_client, qobj=qobj, **submit_info)
             logger.debug('Job %s was successfully submitted.', job.job_id())
         except TypeError as err:
+            logger.debug("Invalid job data received: %s", submit_info)
             raise IBMQBackendApiProtocolError('Unexpected return value received from the server '
                                               'when submitting job: {}'.format(str(err))) from err
         Publisher().publish("ibmq.job.start", job)
@@ -253,21 +257,32 @@ class IBMQBackend(BaseBackend):
         Returns:
             The backend properties or ``None`` if the backend properties are not
             currently available.
+
+        Raises:
+            TypeError: If an input argument is not of the correct type.
         """
         # pylint: disable=arguments-differ
+        if not isinstance(refresh, bool):
+            raise TypeError("The 'refresh' argument needs to be a boolean. "
+                            "{} is of type {}".format(refresh, type(refresh)))
+        if datetime and not isinstance(datetime, python_datetime):
+            raise TypeError("'{}' is not of type 'datetime'.")
+
         if datetime:
-            # Do not use cache for specific datetime properties.
-            api_properties = self._api.backend_properties(self.name(), datetime=datetime)
+            warnings.warn('Unless a UTC timezone information is present, the parameter `datetime`'
+                          'is now expected to be in local time instead of UTC.', stacklevel=2)
+            datetime = local_to_utc(datetime)
+
+        if datetime or refresh or self._properties is None:
+            api_properties = self._api_client.backend_properties(self.name(), datetime=datetime)
             if not api_properties:
                 return None
             decode_backend_properties(api_properties)
-            return BackendProperties.from_dict(api_properties)
-
-        if refresh or self._properties is None:
-            api_properties = self._api.backend_properties(self.name())
-            decode_backend_properties(api_properties)
-            self._properties = BackendProperties.from_dict(api_properties)
-
+            api_properties = utc_to_local_all(api_properties)
+            backend_properties = BackendProperties.from_dict(api_properties)
+            if datetime:    # Don't cache result.
+                return backend_properties
+            self._properties = backend_properties
         return self._properties
 
     def status(self) -> BackendStatus:
@@ -279,7 +294,7 @@ class IBMQBackend(BaseBackend):
         Raises:
             IBMQBackendApiProtocolError: If the status for the backend cannot be formatted properly.
         """
-        api_status = self._api.backend_status(self.name())
+        api_status = self._api_client.backend_status(self.name())
 
         try:
             return BackendStatus.from_dict(api_status)
@@ -302,7 +317,7 @@ class IBMQBackend(BaseBackend):
             return None
 
         if refresh or self._defaults is None:
-            api_defaults = self._api.backend_pulse_defaults(self.name())
+            api_defaults = self._api_client.backend_pulse_defaults(self.name())
             if api_defaults:
                 decode_pulse_defaults(api_defaults)
                 self._defaults = PulseDefaults.from_dict(api_defaults)
@@ -342,7 +357,7 @@ class IBMQBackend(BaseBackend):
         Raises:
             IBMQBackendApiProtocolError: If an unexpected value is received from the server.
         """
-        api_job_limit = self._api.backend_job_limit(self.name())
+        api_job_limit = self._api_client.backend_job_limit(self.name())
 
         try:
             job_limit = BackendJobLimit(**api_job_limit)
@@ -501,6 +516,32 @@ class IBMQBackend(BaseBackend):
 
         return job
 
+    def reservations(
+            self,
+            start_datetime: Optional[python_datetime] = None,
+            end_datetime: Optional[python_datetime] = None
+    ) -> List[BackendReservation]:
+        """Return backend reservations.
+
+        If start_datetime and/or end_datetime is specified, reservations with
+        time slots that overlap with the specified time window will be returned.
+
+        Some of the reservation information, such as scheduling mode, is only
+        available if you are the owner of the reservation.
+
+        Args:
+            start_datetime: Filter by the given start date/time, in local timezone.
+            end_datetime: Filter by the given end date/time, in local timezone.
+
+        Returns:
+            A list of reservations that match the criteria.
+        """
+        start_datetime = local_to_utc(start_datetime) if start_datetime else None
+        end_datetime = local_to_utc(end_datetime) if end_datetime else None
+        raw_response = self._api_client.backend_reservations(
+            self.name(), start_datetime, end_datetime)
+        return convert_reservation_data(raw_response, self.name())
+
     def __repr__(self) -> str:
         credentials_info = ''
         if self.hub:
@@ -564,7 +605,7 @@ class IBMQRetiredBackend(IBMQBackend):
             configuration: Union[QasmBackendConfiguration, PulseBackendConfiguration],
             provider: 'accountprovider.AccountProvider',
             credentials: Credentials,
-            api: AccountClient
+            api_client: AccountClient
     ) -> None:
         """IBMQRetiredBackend constructor.
 
@@ -572,9 +613,9 @@ class IBMQRetiredBackend(IBMQBackend):
             configuration: Backend configuration.
             provider: IBM Quantum Experience account provider
             credentials: IBM Quantum Experience credentials.
-            api: IBM Quantum Experience client used to communicate with the server.
+            api_client: IBM Quantum Experience client used to communicate with the server.
         """
-        super().__init__(configuration, provider, credentials, api)
+        super().__init__(configuration, provider, credentials, api_client)
         self._status = BackendStatus(
             backend_name=self.name(),
             backend_version=self.configuration().backend_version,
@@ -609,6 +650,13 @@ class IBMQRetiredBackend(IBMQBackend):
     def active_jobs(self, limit: int = 10) -> None:
         """Return the unfinished jobs submitted to this backend."""
         return None
+
+    def reservations(
+            self,
+            start_datetime: Optional[python_datetime] = None,
+            end_datetime: Optional[python_datetime] = None
+    ) -> List[BackendReservation]:
+        return []
 
     def run(
             self,

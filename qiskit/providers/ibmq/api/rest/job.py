@@ -46,15 +46,16 @@ class Job(RestAdapterBase):
         'upload_url': '/jobUploadUrl'
     }
 
-    def __init__(self, session: RetrySession, job_id: str) -> None:
+    def __init__(self, session: RetrySession, job_id: str, url_prefix: str = '') -> None:
         """Job constructor.
 
         Args:
             session: Session to be used in the adapter.
             job_id: ID of the job.
+            url_prefix: Prefix to use in the URL.
         """
         self.job_id = job_id
-        super().__init__(session, '/Jobs/{}'.format(job_id))
+        super().__init__(session, '{}/Jobs/{}'.format(url_prefix, job_id))
 
     def get(self) -> Dict[str, Any]:
         """Return job information.
@@ -184,7 +185,7 @@ class Job(RestAdapterBase):
         Returns:
             Text response, which is empty if the request was successful.
         """
-        data = json.dumps(qobj_dict, cls=json_encoder.IQXJsonEconder)
+        data = json.dumps(qobj_dict, cls=json_encoder.IQXJsonEncoder)
         logger.debug('Uploading to object storage.')
         response = self.session.put(url, data=data, bare=True, timeout=600)
         return response.text

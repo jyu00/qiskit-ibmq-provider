@@ -16,10 +16,10 @@
 
 import logging
 import warnings
+import copy
 
 from typing import Dict, List, Callable, Optional, Any, Union
-from types import SimpleNamespace
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from qiskit.providers import JobStatus, QiskitBackendNotFoundError  # type: ignore[attr-defined]
 from qiskit.providers.providerutils import filter_backends
@@ -29,14 +29,16 @@ from .api.exceptions import ApiError
 from .apiconstants import ApiJobStatus
 from .exceptions import (IBMQBackendValueError, IBMQBackendApiError, IBMQBackendApiProtocolError)
 from .ibmqbackend import IBMQBackend, IBMQRetiredBackend
+from .backendreservation import BackendReservation
 from .job import IBMQJob
 from .utils.utils import to_python_identifier, validate_job_tags, filter_data
 from .utils.converters import local_to_utc
+from .utils.backend import convert_reservation_data
 
 logger = logging.getLogger(__name__)
 
 
-class IBMQBackendService(SimpleNamespace):
+class IBMQBackendService:
     """Backend namespace for an IBM Quantum Experience account provider.
 
     Represent a namespace that provides backend related services for the IBM
@@ -139,8 +141,7 @@ class IBMQBackendService(SimpleNamespace):
         Retrieve jobs that match the given filters and paginate the results
         if desired. Note that the server has a limit for the number of jobs
         returned in a single call. As a result, this function might involve
-        making several calls to the server. See the `skip` parameter for
-        more control over pagination.
+        making several calls to the server.
 
         Args:
             limit: Number of jobs to retrieve.
@@ -210,24 +211,10 @@ class IBMQBackendService(SimpleNamespace):
                           '`start_datetime` and `end_datetime` are now expected to be in '
                           'local time instead of UTC.', stacklevel=2)
 
-            # If the datetime timezone info is not UTC, then convert the datetime into UTC.
-            # Note: datetime objects whose `utcoffset()` is `None`, or not equal to `timedelta(0)`,
-            # are considered to be in local time.
-            if start_datetime and (start_datetime.utcoffset() is None
-                                   or start_datetime.utcoffset() != timedelta(0)):
-                start_datetime = local_to_utc(start_datetime)
-            if end_datetime and (end_datetime.utcoffset() is None
-                                 or end_datetime.utcoffset() != timedelta(0)):
-                end_datetime = local_to_utc(end_datetime)
-
-            if start_datetime and end_datetime:
-                api_filter['creationDate'] = {
-                    'between': [start_datetime.isoformat(), end_datetime.isoformat()]
-                }
-            elif start_datetime:
-                api_filter['creationDate'] = {'gte': start_datetime.isoformat()}
-            elif end_datetime:
-                api_filter['creationDate'] = {'lte': end_datetime.isoformat()}
+            api_filter['creationDate'] = self._update_creation_date_filter(
+                cur_dt_filter={},
+                gte_dt=local_to_utc(start_datetime).isoformat() if start_datetime else None,
+                lte_dt=local_to_utc(end_datetime).isoformat() if end_datetime else None)
 
         if job_tags:
             validate_job_tags(job_tags, IBMQBackendValueError)
@@ -248,11 +235,7 @@ class IBMQBackendService(SimpleNamespace):
             # Rather than overriding the logical operators `and`/`or`, first
             # check to see if the `api_filter` query should be extended with the
             # `api_filter` query for the same keys instead.
-            logical_operators_to_expand = ['or', 'and']
-            for key in db_filter:
-                key = key.lower()
-                if key in logical_operators_to_expand and key in api_filter:
-                    api_filter[key].extend(db_filter[key])
+            self._merge_logical_filters(api_filter, db_filter)
 
             # Argument filters takes precedence over db_filter for same keys
             api_filter = {**db_filter, **api_filter}
@@ -260,17 +243,17 @@ class IBMQBackendService(SimpleNamespace):
         # Retrieve the requested number of jobs, using pagination. The server
         # might limit the number of jobs per request.
         job_responses = []  # type: List[Dict[str, Any]]
-        current_page_limit = limit
+        current_page_limit = limit or 20
+        initial_filter = copy.deepcopy(api_filter)
 
         while True:
-            job_page = self._provider._api.list_jobs_statuses(
+            job_page = self._provider._api_client.list_jobs_statuses(
                 limit=current_page_limit, skip=skip, descending=descending,
                 extra_filter=api_filter)
             if logger.getEffectiveLevel() is logging.DEBUG:
                 filtered_data = [filter_data(job) for job in job_page]
                 logger.debug("jobs() response data is %s", filtered_data)
             job_responses += job_page
-            skip = skip + len(job_page)
 
             if not job_page:
                 # Stop if there are no more jobs returned by the server.
@@ -282,7 +265,31 @@ class IBMQBackendService(SimpleNamespace):
                     break
                 current_page_limit = limit - len(job_responses)
             else:
-                current_page_limit = 0
+                current_page_limit = 20
+
+            # Use the last received job for pagination.
+            skip = 0
+            last_job = job_page[-1]
+            api_filter = copy.deepcopy(initial_filter)
+            cur_dt_filter = api_filter.pop('creationDate', {})
+            if descending:
+                new_dt_filter = self._update_creation_date_filter(
+                    cur_dt_filter=cur_dt_filter, lte_dt=last_job['creation_date'])
+            else:
+                new_dt_filter = self._update_creation_date_filter(
+                    cur_dt_filter=cur_dt_filter, gte_dt=last_job['creation_date'])
+            if not cur_dt_filter:
+                api_filter['creationDate'] = new_dt_filter
+            else:
+                self._merge_logical_filters(
+                    api_filter, {'and': [{'creationDate': new_dt_filter}, cur_dt_filter]})
+
+            if 'id' not in api_filter:
+                api_filter['id'] = {'nin': [last_job['job_id']]}
+            else:
+                new_id_filter = {'and': [{'id': {'nin': [last_job['job_id']]}},
+                                         {'id': api_filter.pop('id')}]}
+                self._merge_logical_filters(api_filter, new_id_filter)
 
         job_list = []
         for job_info in job_responses:
@@ -295,9 +302,9 @@ class IBMQBackendService(SimpleNamespace):
                 backend = IBMQRetiredBackend.from_name(backend_name,
                                                        self._provider,
                                                        self._provider.credentials,
-                                                       self._provider._api)
+                                                       self._provider._api_client)
             try:
-                job = IBMQJob(backend=backend, api=self._provider._api, **job_info)
+                job = IBMQJob(backend=backend, api_client=self._provider._api_client, **job_info)
             except TypeError:
                 logger.warning('Discarding job "%s" because it contains invalid data.', job_id)
                 continue
@@ -305,6 +312,63 @@ class IBMQBackendService(SimpleNamespace):
             job_list.append(job)
 
         return job_list
+
+    def _merge_logical_filters(self, cur_filter: Dict, new_filter: Dict) -> None:
+        """Merge the logical operators in the input filters.
+
+        Args:
+            cur_filter: Current filter.
+            new_filter: New filter to be merged into ``cur_filter``.
+
+        Returns:
+            ``cur_filter`` with ``new_filter``'s logical operators merged into it.
+        """
+        logical_operators_to_expand = ['or', 'and']
+        for key in logical_operators_to_expand:
+            if key in new_filter:
+                if key in cur_filter:
+                    cur_filter[key].extend(new_filter[key])
+                else:
+                    cur_filter[key] = new_filter[key]
+
+    def _update_creation_date_filter(
+            self,
+            cur_dt_filter: Dict[str, Any],
+            gte_dt: Optional[str] = None,
+            lte_dt: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Use the new start and end datetime in the creation date filter.
+
+        Args:
+            cur_dt_filter: Current creation date filter.
+            gte_dt: New start datetime.
+            lte_dt: New end datetime.
+
+        Returns:
+            Updated creation date filter.
+        """
+        if not gte_dt:
+            gt_list = [cur_dt_filter.pop(gt_op) for gt_op in ['gt', 'gte']
+                       if gt_op in cur_dt_filter]
+            if 'between' in cur_dt_filter and len(cur_dt_filter['between']) > 0:
+                gt_list.append(cur_dt_filter.pop('between')[0])
+            gte_dt = max(gt_list) if gt_list else None
+        if not lte_dt:
+            lt_list = [cur_dt_filter.pop(lt_op) for lt_op in ['lt', 'lte']
+                       if lt_op in cur_dt_filter]
+            if 'between' in cur_dt_filter and len(cur_dt_filter['between']) > 1:
+                lt_list.append(cur_dt_filter.pop('between')[1])
+            lte_dt = min(lt_list) if lt_list else None
+
+        new_dt_filter = {}
+        if gte_dt and lte_dt:
+            new_dt_filter['between'] = [gte_dt, lte_dt]
+        elif gte_dt:
+            new_dt_filter['gte'] = gte_dt  # type: ignore[assignment]
+        elif lte_dt:
+            new_dt_filter['lte'] = lte_dt  # type: ignore[assignment]
+
+        return new_dt_filter
 
     def _get_status_db_filter(
             self,
@@ -392,7 +456,7 @@ class IBMQBackendService(SimpleNamespace):
                  from the server.
         """
         try:
-            job_info = self._provider._api.job_get(job_id)
+            job_info = self._provider._api_client.job_get(job_id)
         except ApiError as ex:
             raise IBMQBackendApiError('Failed to get job {}: {}'
                                       .format(job_id, str(ex))) from ex
@@ -405,15 +469,24 @@ class IBMQBackendService(SimpleNamespace):
             backend = IBMQRetiredBackend.from_name(backend_name,
                                                    self._provider,
                                                    self._provider.credentials,
-                                                   self._provider._api)
+                                                   self._provider._api_client)
         try:
-            job = IBMQJob(backend=backend, api=self._provider._api, **job_info)
+            job = IBMQJob(backend=backend, api_client=self._provider._api_client, **job_info)
         except TypeError as ex:
             raise IBMQBackendApiProtocolError(
                 'Unexpected return value received from the server '
                 'when retrieving job {}: {}'.format(job_id, str(ex))) from ex
 
         return job
+
+    def my_reservations(self) -> List[BackendReservation]:
+        """Return your upcoming reservations.
+
+        Returns:
+            A list of your upcoming reservations.
+        """
+        raw_response = self._provider._api_client.my_reservations()
+        return convert_reservation_data(raw_response)
 
     @staticmethod
     def _deprecated_backend_names() -> Dict[str, str]:

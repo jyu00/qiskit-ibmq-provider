@@ -36,11 +36,12 @@ from qiskit.providers.ibmq.ibmqbackend import IBMQRetiredBackend
 from qiskit.providers.ibmq.exceptions import IBMQBackendError
 from qiskit.providers.ibmq.job.utils import api_status_to_job_status
 from qiskit.providers.ibmq.job.exceptions import IBMQJobInvalidStateError, IBMQJobTimeoutError
+from qiskit.providers.ibmq.utils.converters import local_to_utc
 
 from ..jobtestcase import JobTestCase
 from ..decorators import (requires_provider, requires_device)
 from ..utils import (most_busy_backend, get_large_circuit, bell_in_qobj, cancel_job,
-                     submit_bad_job, submit_and_cancel)
+                     submit_job_bad_shots, submit_and_cancel, submit_job_one_bad_instr)
 
 
 class TestIBMQJob(JobTestCase):
@@ -297,7 +298,8 @@ class TestIBMQJob(JobTestCase):
         ]
 
         job_to_cancel = submit_and_cancel(backend=self.sim_backend)
-        job_to_fail = submit_bad_job(backend=self.sim_backend)
+        job_to_fail = submit_job_bad_shots(backend=self.sim_backend)
+        job_to_fail.wait_for_final_state()
 
         for status_filter in status_filters:
             with self.subTest(status_filter=status_filter):
@@ -460,6 +462,26 @@ class TestIBMQJob(JobTestCase):
                 "Job {} does not have correct data.".format(job.job_id())
             )
 
+    def test_pagination_filter(self):
+        """Test db_filter that could conflict with pagination."""
+        jobs = self.sim_backend.jobs(limit=25)
+        job = jobs[3]
+        job_utc = local_to_utc(job.creation_date()).isoformat()
+
+        db_filters = [
+            {'id': {'neq': job.job_id()}},
+            {'and': [{'id': {'neq': job.job_id()}}]},
+            {'creationDate': {'neq': job_utc}},
+            {'and': [{'creationDate': {'gt': job_utc}}]}
+        ]
+        for db_filter in db_filters:
+            with self.subTest(filter=db_filter):
+                job_list = self.sim_backend.jobs(limit=25, db_filter=db_filter)
+                self.assertTrue(job_list)
+                self.assertNotIn(job.job_id(), [rjob.job_id() for rjob in job_list],
+                                 "Job {} with creation date {} should not be returned".format(
+                                     job.job_id(), job_utc))
+
     def test_retrieve_jobs_order(self):
         """Test retrieving jobs with different orders."""
         job = self.sim_backend.run(bell_in_qobj(backend=self.sim_backend), validate_qobj=True)
@@ -477,11 +499,7 @@ class TestIBMQJob(JobTestCase):
 
     def test_retrieve_failed_job_simulator_partial(self):
         """Test retrieving partial results from a simulator backend."""
-        qc_new = transpile(ReferenceCircuits.bell(), self.sim_backend)
-        qobj = assemble([qc_new]*2, backend=self.sim_backend)
-        qobj.experiments[1].instructions[1].name = 'bad_instruction'
-
-        job = self.sim_backend.run(qobj, validate_qobj=True)
+        job = submit_job_one_bad_instr(self.sim_backend)
         result = job.result(partial=True)
 
         self.assertIsInstance(result, Result)
@@ -533,17 +551,17 @@ class TestIBMQJob(JobTestCase):
         result = self.sim_job.result()
 
         # Save original cached results.
-        cached_result = copy.deepcopy(result)
+        cached_result = copy.deepcopy(result.to_dict())
         self.assertTrue(cached_result)
 
         # Modify cached results.
         result.results[0].header.name = 'modified_result'
-        self.assertNotEqual(cached_result, result)
+        self.assertNotEqual(cached_result, result.to_dict())
         self.assertEqual(result.results[0].header.name, 'modified_result')
 
         # Re-retrieve result via refresh.
         result = self.sim_job.result(refresh=True)
-        self.assertEqual(cached_result, result)
+        self.assertDictEqual(cached_result, result.to_dict())
         self.assertNotEqual(result.results[0].header.name, 'modified_result')
 
     @requires_device

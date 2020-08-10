@@ -16,25 +16,18 @@
 
 from typing import Any, Optional, Union
 from datetime import datetime
-from types import SimpleNamespace
+import warnings
+
 import dateutil.parser
 
 from ..utils import utc_to_local, duration_difference
 from .utils import api_status_to_job_status
 
 
-class QueueInfo(SimpleNamespace):
-    """Queue information for a job.
+class QueueInfo:
+    """Queue information for a job."""
 
-    Attributes:
-        position: Job position in the queue within the scope of the provider.
-        estimated_start_time: Estimated start time for the job, in UTC.
-        estimated_complete_time: Estimated completion time for the job, in UTC.
-        hub_priority: Dynamic priority for the hub the job is in.
-        group_priority: Dynamic priority for the group the job is in.
-        project_priority: Dynamic priority for the project the job is in.
-        job_id: Job ID.
-    """
+    _data = {}
 
     def __init__(
             self,
@@ -67,14 +60,14 @@ class QueueInfo(SimpleNamespace):
             estimated_start_time = dateutil.parser.isoparse(estimated_start_time)
         if isinstance(estimated_complete_time, str):
             estimated_complete_time = dateutil.parser.isoparse(estimated_complete_time)
-        self.estimated_start_time = estimated_start_time
-        self.estimated_complete_time = estimated_complete_time
+        self._estimated_start_time_utc = estimated_start_time
+        self._estimated_complete_time_utc = estimated_complete_time
         self.hub_priority = hub_priority
         self.group_priority = group_priority
         self.project_priority = project_priority
         self.job_id = job_id
 
-        super().__init__(**kwargs)
+        self._data = kwargs
 
     def __repr__(self) -> str:
         """Return the string representation of ``QueueInfo``.
@@ -92,23 +85,31 @@ class QueueInfo(SimpleNamespace):
         """
         status = api_status_to_job_status(self._status).name \
             if self._status else self._get_value(self._status)
-        est_start_time = utc_to_local(self.estimated_start_time).isoformat() \
-            if self.estimated_start_time else self._get_value(self.estimated_start_time)
-        est_complete_time = utc_to_local(self.estimated_complete_time).isoformat() \
-            if self.estimated_complete_time else self._get_value(self.estimated_complete_time)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            est_start_time = self.estimated_start_time.isoformat() \
+                if self.estimated_start_time else None
+            est_complete_time = self.estimated_complete_time.isoformat() \
+                if self.estimated_complete_time else None
 
         queue_info = [
-            "job_id='{}'".format(self._get_value(self.job_id)),
-            "_status='{}'".format(self._get_value(status)),
+            "job_id='{}'".format(self.job_id),
+            "_status='{}'".format(status),
             "estimated_start_time='{}'".format(est_start_time),
             "estimated_complete_time='{}'".format(est_complete_time),
-            "position={}".format(self._get_value(self.position)),
-            "hub_priority={}".format(self._get_value(self.hub_priority)),
-            "group_priority={}".format(self._get_value(self.group_priority)),
-            "project_priority={}".format(self._get_value(self.project_priority))
+            "position={}".format(self.position),
+            "hub_priority={}".format(self.hub_priority),
+            "group_priority={}".format(self.group_priority),
+            "project_priority={}".format(self.project_priority)
         ]
 
         return "<{}({})>".format(self.__class__.__name__, ', '.join(queue_info))
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self._data[name]
+        except KeyError:
+            raise AttributeError('Attribute {} is not defined.'.format(name)) from None
 
     def format(self) -> str:
         """Build a user-friendly report for the job queue information.
@@ -118,10 +119,13 @@ class QueueInfo(SimpleNamespace):
         """
         status = api_status_to_job_status(self._status).value \
             if self._status else self._get_value(self._status)
-        est_start_time = duration_difference(self.estimated_start_time) \
-            if self.estimated_start_time else self._get_value(self.estimated_start_time)
-        est_complete_time = duration_difference(self.estimated_complete_time) \
-            if self.estimated_complete_time else self._get_value(self.estimated_complete_time)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            est_start_time = duration_difference(self.estimated_start_time) \
+                if self.estimated_start_time else self._get_value(self.estimated_start_time)
+            est_complete_time = duration_difference(self.estimated_complete_time) \
+                if self.estimated_complete_time else self._get_value(self.estimated_complete_time)
 
         queue_info = [
             "Job {} queue information:".format(self._get_value(self.job_id)),
@@ -143,3 +147,17 @@ class QueueInfo(SimpleNamespace):
             The input value if it is not ``None``, else the input default value.
         """
         return value or default_value
+
+    @property
+    def estimated_start_time(self) -> Optional[datetime]:
+        """Return estimated start time in local time."""
+        if self._estimated_start_time_utc is None:
+            return None
+        return utc_to_local(self._estimated_start_time_utc)
+
+    @property
+    def estimated_complete_time(self) -> Optional[datetime]:
+        """Return estimated complete time in local time."""
+        if self._estimated_complete_time_utc is None:
+            return None
+        return utc_to_local(self._estimated_complete_time_utc)

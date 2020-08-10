@@ -16,7 +16,7 @@
 
 import time
 from unittest import mock
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import uuid
 
@@ -33,7 +33,8 @@ from qiskit.compiler import assemble, transpile
 from ..jobtestcase import JobTestCase
 from ..decorators import requires_provider, requires_device
 from ..utils import (most_busy_backend, cancel_job, get_large_circuit,
-                     update_job_tags_and_verify, bell_in_qobj, submit_bad_job)
+                     update_job_tags_and_verify, bell_in_qobj, submit_job_bad_shots,
+                     submit_job_one_bad_instr)
 from ..fake_account_client import BaseFakeAccountClient, MissingFieldFakeJob
 
 
@@ -89,9 +90,6 @@ class TestIBMQJobAttributes(JobTestCase):
         job_name = str(time.time()).replace('.', '')
         job = self.sim_backend.run(qobj, job_name=job_name, validate_qobj=True)
         job_id = job.job_id()
-        # TODO No need to wait for job to run once api is fixed
-        while job.status() not in JOB_FINAL_STATES + (JobStatus.RUNNING,):
-            time.sleep(0.5)
         rjob = self.provider.backends.retrieve_job(job_id)
         self.assertEqual(rjob.name(), job_name)
 
@@ -143,9 +141,6 @@ class TestIBMQJobAttributes(JobTestCase):
         for _ in range(2):
             job = self.sim_backend.run(qobj, job_name=job_name, validate_qobj=True)
             job_ids.add(job.job_id())
-            # TODO No need to wait for job to run once api is fixed
-            while job.status() not in JOB_FINAL_STATES + (JobStatus.RUNNING,):
-                time.sleep(0.5)
 
         retrieved_jobs = self.provider.backends.jobs(backend_name=self.sim_backend.name(),
                                                      job_name=job_name)
@@ -161,33 +156,25 @@ class TestIBMQJobAttributes(JobTestCase):
     @requires_device
     def test_error_message_device(self, backend):
         """Test retrieving job error messages from a device backend."""
-        qc_new = transpile(self._qc, backend)
-        qobj = assemble([qc_new]*2, backend=backend)
-        qobj.experiments[1].instructions[1].name = 'bad_instruction'
-
-        job = backend.run(qobj, validate_qobj=True)
+        job = submit_job_one_bad_instr(backend)
         job.wait_for_final_state(wait=300, callback=self.simple_job_callback)
-        with self.assertRaises(IBMQJobFailureError):
-            job.result(partial=False)
 
-        message = job.error_message()
-        self.assertTrue(message)
-        self.assertIsNotNone(re.search(r'Error code: [0-9]{4}\.$', message), message)
+        rjob = backend.retrieve_job(job.job_id())
 
-        provider = backend.provider()
-        r_message = provider.backends.retrieve_job(job.job_id()).error_message()
-        self.assertTrue(r_message)
-        self.assertIsNotNone(re.search(r'Error code: [0-9]{4}\.$', r_message), r_message)
+        for q_job, partial in [(job, False), (rjob, True)]:
+            with self.subTest(partial=partial):
+                with self.assertRaises(IBMQJobFailureError) as err_cm:
+                    q_job.result(partial=partial)
+                for msg in (err_cm.exception.message, q_job.error_message()):
+                    self.assertIn('bad_instruction', msg)
+                    self.assertIsNotNone(re.search(r'Error code: [0-9]{4}\.$', msg), msg)
 
     def test_error_message_simulator(self):
         """Test retrieving job error messages from a simulator backend."""
-        qc_new = transpile(self._qc, self.sim_backend)
-        qobj = assemble([qc_new]*2, backend=self.sim_backend)
-        qobj.experiments[1].instructions[1].name = 'bad_instruction'
-
-        job = self.sim_backend.run(qobj, validate_qobj=True)
-        with self.assertRaises(IBMQJobFailureError):
+        job = submit_job_one_bad_instr(self.sim_backend)
+        with self.assertRaises(IBMQJobFailureError) as err_cm:
             job.result()
+        self.assertNotIn('bad_instruction', err_cm.exception.message)
 
         message = job.error_message()
         self.assertIn('Experiment 1: ERROR', message)
@@ -197,16 +184,18 @@ class TestIBMQJobAttributes(JobTestCase):
 
     def test_error_message_validation(self):
         """Test retrieving job error message for a validation error."""
-        job = submit_bad_job(self.sim_backend)
-        with self.assertRaises(IBMQJobFailureError):
-            job.result()
+        job = submit_job_bad_shots(self.sim_backend)
+        rjob = self.sim_backend.retrieve_job(job.job_id())
 
-        message = job.error_message()
-        self.assertNotIn("Unknown", message)
-        self.assertIsNotNone(re.search(r'Error code: [0-9]{4}\.$', message), message)
+        for q_job, partial in [(job, False), (rjob, True)]:
+            with self.subTest(partial=partial):
+                with self.assertRaises(IBMQJobFailureError) as err_cm:
+                    q_job.result(partial=partial)
+                for msg in (err_cm.exception.message, q_job.error_message()):
+                    self.assertNotIn("Unknown", msg)
+                    self.assertIsNotNone(re.search(r'Error code: [0-9]{4}\.$', msg), msg)
 
-        r_message = self.provider.backends.retrieve_job(job.job_id()).error_message()
-        self.assertEqual(message, r_message)
+        self.assertEqual(job.error_message(), rjob.error_message())
 
     def test_refresh(self):
         """Test refreshing job data."""
@@ -222,11 +211,11 @@ class TestIBMQJobAttributes(JobTestCase):
     def test_job_creation_date(self):
         """Test retrieving creation date, while ensuring it is in local time."""
         # datetime, before running the job, in local time.
-        start_datetime = datetime.now().replace(tzinfo=tz.tzlocal())
+        start_datetime = datetime.now().replace(tzinfo=tz.tzlocal()) - timedelta(seconds=1)
         job = self.sim_backend.run(self.qobj, validate_qobj=True)
         job.result()
         # datetime, after the job is done running, in local time.
-        end_datetime = datetime.now().replace(tzinfo=tz.tzlocal())
+        end_datetime = datetime.now().replace(tzinfo=tz.tzlocal()) + timedelta(seconds=1)
 
         self.assertTrue((start_datetime <= job.creation_date() <= end_datetime),
                         'job creation date {} is not '
@@ -236,11 +225,11 @@ class TestIBMQJobAttributes(JobTestCase):
     def test_time_per_step(self):
         """Test retrieving time per step, while ensuring the date times are in local time."""
         # datetime, before running the job, in local time.
-        start_datetime = datetime.now().replace(tzinfo=tz.tzlocal())
+        start_datetime = datetime.now().replace(tzinfo=tz.tzlocal()) - timedelta(seconds=1)
         job = self.sim_backend.run(self.qobj, validate_qobj=True)
         job.result()
         # datetime, after the job is done running, in local time.
-        end_datetime = datetime.now().replace(tzinfo=tz.tzlocal())
+        end_datetime = datetime.now().replace(tzinfo=tz.tzlocal()) + timedelta(seconds=1)
 
         self.assertTrue(job.time_per_step())
         for step, time_data in job.time_per_step().items():
@@ -260,7 +249,7 @@ class TestIBMQJobAttributes(JobTestCase):
             return submit_info
 
         qobj = bell_in_qobj(self.sim_backend)
-        original_submit = self.sim_backend._api.job_submit
+        original_submit = self.sim_backend._api_client.job_submit
         with mock.patch.object(AccountClient, 'job_submit',
                                side_effect=_mocked__api_job_submit):
             job = self.sim_backend.run(qobj, validate_qobj=True)
@@ -323,9 +312,6 @@ class TestIBMQJobAttributes(JobTestCase):
         # Use a unique tag.
         job_tags = [uuid.uuid4().hex, uuid.uuid4().hex, uuid.uuid4().hex]
         job = self.sim_backend.run(self.qobj, job_tags=job_tags, validate_qobj=True)
-        # TODO No need to wait for job to run once api is fixed
-        while job.status() not in JOB_FINAL_STATES + (JobStatus.RUNNING,):
-            time.sleep(0.5)
 
         rjobs = self.sim_backend.jobs(job_tags=['phantom_tag'])
         self.assertEqual(len(rjobs), 0,
@@ -346,9 +332,6 @@ class TestIBMQJobAttributes(JobTestCase):
         # Use a unique tag.
         job_tags = [uuid.uuid4().hex, uuid.uuid4().hex, uuid.uuid4().hex]
         job = self.sim_backend.run(self.qobj, job_tags=job_tags, validate_qobj=True)
-        # TODO No need to wait for job to run once api is fixed
-        while job.status() not in JOB_FINAL_STATES + (JobStatus.RUNNING,):
-            time.sleep(0.5)
 
         no_rjobs_tags = [job_tags[0:1]+['phantom_tags'], ['phantom_tag']]
         for tags in no_rjobs_tags:
@@ -472,9 +455,14 @@ class TestIBMQJobAttributes(JobTestCase):
 
     def test_missing_required_fields(self):
         """Test response data is missing required fields."""
-        saved_api = self.sim_backend._api
+        saved_api = self.sim_backend._api_client
         try:
-            self.sim_backend._api = BaseFakeAccountClient(job_class=MissingFieldFakeJob)
+            self.sim_backend._api_client = BaseFakeAccountClient(job_class=MissingFieldFakeJob)
             self.assertRaises(IBMQBackendApiProtocolError, self.sim_backend.run, self.qobj)
         finally:
-            self.sim_backend._api = saved_api
+            self.sim_backend._api_client = saved_api
+
+    def test_client_version(self):
+        """Test job client version information."""
+        self.assertIsNotNone(self.sim_job.result().client_version)
+        self.assertIsNotNone(self.sim_job.client_version)
