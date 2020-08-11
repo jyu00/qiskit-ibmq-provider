@@ -16,12 +16,18 @@
 
 import os
 import logging
-from typing import List, Any, Dict, Tuple
+from typing import List, Any, Dict, Tuple, Optional, Union
+import uuid
 
-from ..ibmqservice import IBMQService
-from ..api.clients.circuit import CircuitClient
+from qiskit import QuantumCircuit
+
 from .circuitdefinition import CircuitDefinition
 from .exceptions import IBMQCircuitNotFound
+from ..ibmqservice import IBMQService
+from ..api.clients.circuit import CircuitClient
+from ..job.ibmqjob import IBMQJob
+from ..ibmqbackend import IBMQBackend
+
 
 logger = logging.getLogger(__name__)
 
@@ -97,3 +103,55 @@ class CircuitService(IBMQService):
         circ_id, circ = self._to_service_instance(self._api_client.circuit_get(name))
         self._add_instance(circ_id, circ)
         return circ
+
+    def run(
+            self,
+            circuits: Union[QuantumCircuit, List[QuantumCircuit]],
+            backend: IBMQBackend,
+            shots: int = 1024,
+            qobj_header: Optional[dict] = None
+    ) -> IBMQJob:
+        """
+
+        Args:
+            circuits: The circuits to execute.
+            backend: Backend to submit the circuits to.
+            shots: Number of repetitions of each circuit.
+            qobj_header: User input that will be inserted in Qobj header,
+                and will also be copied to the corresponding :class:`qiskit.result.Result`
+                header. Headers do not affect the run.
+
+        Returns:
+
+        """
+        if isinstance(circuits, QuantumCircuit):
+            circuits = [circuits]
+        qasm_strs = []
+        for circ in circuits:
+            init_qasm = circ.qasm().split('\n')
+            final_qasm = []
+            opaque_gates = []
+            for index, line in enumerate(init_qasm):
+                # Remove duplicate opaque gate.
+                if line.startswith('opaque') and \
+                        init_qasm[index-1].startswith('// PRAGMA remote-circuit'):
+                    gate_name = line.split()[1]
+                    if gate_name in opaque_gates:
+                        continue
+                    opaque_gates.append(gate_name)
+                final_qasm.append(line)
+            qasm_strs.append('\n'.join(final_qasm))
+            print('\n'.join(final_qasm))
+
+        qobj_header = qobj_header or {}
+        qobj_header = {**dict(backend_name=backend.name(),
+                              backend_version=backend.configuration().backend_version),
+                       **qobj_header}
+
+        payload = {     # pylint: disable=unused-variable
+            "experiments": qasm_strs,
+            "header": qobj_header,
+            "config": {"shots": shots},
+            "qobj_id": str(uuid.uuid4()),
+            "schema_version": "1.2.0"
+        }

@@ -28,3 +28,7 @@ class IBMQCircuitNotFound(IBMQCircuitError):
 
 class IBMQCircuitBadArguments(IBMQCircuitError):
     """Raised when invalid circuit arguments are used."""
+
+
+class CircuitReferenceNotFound(IBMQCircuitError):
+    """Raised when reference circuit cannot be found."""

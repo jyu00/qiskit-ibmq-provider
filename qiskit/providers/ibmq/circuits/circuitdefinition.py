@@ -15,13 +15,16 @@
 """IBM Quantum Experience circuit."""
 
 import logging
+import inspect
 from typing import Dict, Any, List
 
 from qiskit.circuit.quantumcircuit import QuantumCircuit
 from qiskit.providers.ibmq import accountprovider  # pylint: disable=unused-import
+import qiskit.circuit.library as circuit_library
 
 from .apiconstants import CircuitOutputType
-from .exceptions import IBMQCircuitBadArguments
+from .exceptions import IBMQCircuitBadArguments, CircuitReferenceNotFound
+from .remotegate import RemoteGate
 from ..api.exceptions import ApiIBMQProtocolError
 from ..api.clients.circuit import CircuitClient
 
@@ -53,19 +56,24 @@ class CircuitDefinition:
         self._name = name
         self._description = description
         self._parameters = [CircuitParameterDefinition.from_dict(raw_arg) for raw_arg in arguments]
+        self.arguments = None
 
-    def instantiate(self, **kwargs: Any) -> QuantumCircuit:
+    def instantiate(self, decompose: bool = False, **kwargs: Any) -> QuantumCircuit:
         """Instantiate the circuit with the input arguments.
 
         Args:
+            decompose: True if the decomposed circuit is to be retrieved from the
+                IBM Quantum Experience server and returned. False if an opaque circuit
+                is to be returned.
             **kwargs: Arguments used to instantiate the circuit.
 
         Returns:
-            Compiled circuit.
+            A :class:`QuantumCircuit` instantiated using the input arguments.
 
         Raises:
             IBMQCircuitBadArguments: If an input argument is not valid.
             ApiIBMQProtocolError: If invalid data received from the server.
+            CircuitReferenceNotFound: If a local reference circuit cannot be found.
         """
         # Check for extra parameters.
         param_names = [param.name for param in self.parameters]
@@ -81,12 +89,33 @@ class CircuitDefinition:
             raise IBMQCircuitBadArguments(
                 "Required parameters {} are missing.".format(','.join(missing_params)))
 
-        raw_response = self._api_client.circuit_instantiate(
-            self.name, CircuitOutputType.QASM, **kwargs)
-        if raw_response['format'] != CircuitOutputType.QASM:
-            raise ApiIBMQProtocolError("Invalid output format {} received from "
-                                       "the server.".format(raw_response['format']))
-        return QuantumCircuit.from_qasm_str(raw_response['circuit'])
+        if decompose:
+            raw_response = self._api_client.circuit_instantiate(
+                self.name, CircuitOutputType.QASM, **kwargs)
+            if raw_response['format'] != CircuitOutputType.QASM:
+                raise ApiIBMQProtocolError("Invalid output format {} received from "
+                                           "the server.".format(raw_response['format']))
+            return QuantumCircuit.from_qasm_str(raw_response['circuit'])
+
+        circ_lib = inspect.getmembers(circuit_library, inspect.isclass)
+        circ_class = None
+        for lib_elem in circ_lib:
+            if lib_elem[0] == self.name:
+                circ_class = lib_elem[1]
+                break
+
+        if not circ_class:
+            raise CircuitReferenceNotFound(
+                "Unable to find a reference {} circuit in circuit library.".format(self.name))
+
+        self.arguments = kwargs
+        ref_qx = circ_class(**kwargs)
+        opaque_gate = RemoteGate(name=self.name, num_qubits=ref_qx.num_qubits, params=[])
+        opaque_gate._is_remote = True
+        opaque_gate._remote_params = ["{}={}".format(name, val) for name, val in kwargs.items()]
+        out_qx = QuantumCircuit(*ref_qx.qregs)
+        out_qx.append(opaque_gate, list(range(ref_qx.num_qubits)))
+        return out_qx
 
     def pprint(self) -> None:
         """Print a formatted description of this circuit."""

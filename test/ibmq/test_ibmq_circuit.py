@@ -16,8 +16,10 @@
 
 import random
 from typing import List, Optional
+from unittest import skip
 
 from qiskit.circuit.quantumcircuit import QuantumCircuit
+from qiskit import transpile
 from qiskit.providers.ibmq.circuits.circuitdefinition import (CircuitDefinition,
                                                               CircuitParameterDefinition)
 from qiskit.providers.ibmq.circuits.exceptions import IBMQCircuitNotFound, IBMQCircuitBadArguments
@@ -94,7 +96,7 @@ class TestIBMQCircuit(IBMQTestCase):
                          [circ.name for circ in self.provider.circuit_definitions()])
 
     def test_instantiate_all_args(self):
-        """Test instantiating a circuit with all parameters"""
+        """Test instantiating a circuit with all parameters."""
         good_circs = [circ for circ in self.provider.circuit_definitions() if circ.parameters]
         if not good_circs:
             self.skipTest("Test requires a circuit with parameters.")
@@ -102,8 +104,11 @@ class TestIBMQCircuit(IBMQTestCase):
         valid_args = {}
         for param in circ.parameters:
             valid_args[param.name] = self._get_valid_arg_value(param)
-        circ_inst = circ.instantiate(**valid_args)
+        circ_inst = circ.instantiate(decompose=True, **valid_args)
         self.assertIsInstance(circ_inst, QuantumCircuit)
+        backend = self.provider.backends(
+            filters=lambda b: b.configuration().n_qubits >= circ_inst.num_qubits)[0]
+        transpile(circ_inst, backend=backend)
 
     def test_instantiate_only_required_args(self):
         """Test instantiating a circuit with only required parameters."""
@@ -126,8 +131,11 @@ class TestIBMQCircuit(IBMQTestCase):
         for param in good_circ.parameters:
             if param.required:
                 valid_args[param.name] = self._get_valid_arg_value(param)
-        circ_inst = good_circ.instantiate(**valid_args)
+        circ_inst = good_circ.instantiate(decompose=False, **valid_args)
         self.assertIsInstance(circ_inst, QuantumCircuit)
+        backend = self.provider.backends(
+            filters=lambda b: b.configuration().n_qubits >= circ_inst.num_qubits)[0]
+        transpile(circ_inst, backend=backend)
 
     def test_instantiate_missing_required_args(self):
         """Test instantiating a circuit with missing required arguments."""
@@ -145,6 +153,41 @@ class TestIBMQCircuit(IBMQTestCase):
         with self.assertRaises(IBMQCircuitBadArguments) as manager:
             circuit.instantiate(phantom_arg='foo')
         self.assertIn('phantom_arg', manager.exception.message)
+
+    def test_instantiate_opaque_params(self):
+        """Test instantiating a circuit without decomposing."""
+        good_circs = [circ for circ in self.provider.circuit_definitions() if circ.parameters]
+        if not good_circs:
+            self.skipTest("Test requires a circuit with parameters.")
+        circ = good_circs[random.randrange(len(good_circs))]
+        valid_args = {}
+        for param in circ.parameters:
+            valid_args[param.name] = self._get_valid_arg_value(param)
+        circ_inst = circ.instantiate(**valid_args)
+        self.assertIsInstance(circ_inst, QuantumCircuit)
+        local_qx = QuantumCircuit(circ_inst.num_qubits, circ_inst.num_qubits)
+        local_qx.h(0)
+        combined_qx = local_qx.compose(circ_inst, qubits=list(range(circ_inst.num_qubits)))
+        self.assertIn(circ.name, [instr.name for instr, _, _ in combined_qx.data])
+
+        self.assertIn(circ.name.lower(), combined_qx.qasm())
+        QuantumCircuit.from_qasm_str(combined_qx.qasm())
+
+    @skip("No circuit matches criteria.")
+    def test_instantiate_opaque_no_params(self):
+        """Test instantiating a circuit without decomposing and no parameters."""
+        good_circs = [circ for circ in self.provider.circuit_definitions()
+                      if all(not param.required for param in circ.parameters)]
+        if not good_circs:
+            self.skipTest("Test requires a circuit with no required parameters.")
+        circ = good_circs[random.randrange(len(good_circs))]
+        circ.pprint()
+        circ_inst = circ.instantiate()
+        self.assertIsInstance(circ_inst, QuantumCircuit)
+        local_qx = QuantumCircuit(circ_inst.num_qubits, circ_inst.num_qubits)
+        local_qx.h(0)
+        combined_qx = local_qx.compose(circ_inst, qubits=list(range(circ_inst.num_qubits)))
+        self.assertIn("remote_"+circ.name, [instr.name for instr, _, _ in combined_qx.data])
 
     def _find_arg_type(
             self,
@@ -174,7 +217,7 @@ class TestIBMQCircuit(IBMQTestCase):
     def _get_valid_arg_value(self, circ_arg):
         """Return a valid value for the argument type."""
         valid_vars = {"str": "foo",
-                      "int": 42,
+                      "int": 5,
                       "float": 4.2,
                       "bool": True}
         return valid_vars[circ_arg.type]
