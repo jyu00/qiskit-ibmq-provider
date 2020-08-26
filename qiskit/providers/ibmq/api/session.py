@@ -282,7 +282,7 @@ class RetrySession(Session):
                     logger.debug("Response uber-trace-id: %s", ex.response.headers['uber-trace-id'])
                 except (ValueError, KeyError):
                     # the response did not contain the expected json.
-                    pass
+                    message += str(ex.response.json())
 
             if self.access_token:
                 message = message.replace(self.access_token, '...')

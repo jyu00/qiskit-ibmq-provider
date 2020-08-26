@@ -51,6 +51,14 @@ class CircuitClient(BaseClient):
         """
         return self.base_api.circuits()
 
+    def circuit_families(self) -> List:
+        """Return a list of circuit families.
+
+        Returns:
+            A list of circuit families.
+        """
+        return self.base_api.circuit_families()
+
     def circuit_get(self, circuit_name: str) -> Dict[str, Any]:
         """Return information about the circuit.
 
@@ -78,3 +86,38 @@ class CircuitClient(BaseClient):
             Circuit instance data.
         """
         return self.base_api.circuit_adapter(circuit_name).instantiate(output_format, **arguments)
+
+    def circuit_lib_execute(
+            self,
+            circuit_name: str,
+            config: Dict,
+            arguments: Dict
+    ) -> Dict[str, Any]:
+        """Execute a remote circuit library circuit.
+
+        Args:
+            circuit_name: Name of the circuit.
+            config: Run time configuration.
+            arguments: Circuit arguments.
+
+        Returns:
+            Execution result.
+        """
+        return self.base_api.circuit_adapter(circuit_name).execute_lib_circuit(
+            config, arguments)
+
+    def circuit_user_execute(
+            self,
+            qobj_config: Dict,
+            experiments: List[str]
+    ) -> Dict[str, Any]:
+        """Execute a user circuit.
+
+        Args:
+            qobj_config: Qobj configuration.
+            experiments: User circuits.
+
+        Returns:
+            Execution result.
+        """
+        return self.base_api.circuits_user_execute(qobj_config, experiments)

@@ -16,7 +16,7 @@
 
 import os
 import logging
-from typing import List, Any, Dict, Tuple, Optional, Union
+from typing import List, Any, Dict, Tuple, Optional, Union, NamedTuple
 import uuid
 
 from qiskit import QuantumCircuit
@@ -30,6 +30,13 @@ from ..ibmqbackend import IBMQBackend
 
 
 logger = logging.getLogger(__name__)
+
+
+class CircuitFamily(NamedTuple):
+    """Named tuple representing a circuit family."""
+    name: str
+    description: str
+    circuits: List[str]
 
 
 class CircuitService(IBMQService):
@@ -108,30 +115,28 @@ class CircuitService(IBMQService):
             self,
             circuits: Union[QuantumCircuit, List[QuantumCircuit]],
             backend: IBMQBackend,
-            shots: int = 1024,
-            qobj_header: Optional[dict] = None
+            shots: int = 1024
     ) -> IBMQJob:
-        """
+        """Execute a user circuit asynchronously.
 
         Args:
             circuits: The circuits to execute.
             backend: Backend to submit the circuits to.
             shots: Number of repetitions of each circuit.
-            qobj_header: User input that will be inserted in Qobj header,
-                and will also be copied to the corresponding :class:`qiskit.result.Result`
-                header. Headers do not affect the run.
 
         Returns:
-
+            The job to be executed, an instance derived from BaseJob.
         """
         if isinstance(circuits, QuantumCircuit):
             circuits = [circuits]
         qasm_strs = []
         for circ in circuits:
-            init_qasm = circ.qasm().split('\n')
+            init_qasm = circ.qasm().split('\n')     # TODO split at ;
             final_qasm = []
             opaque_gates = []
             for index, line in enumerate(init_qasm):
+                if line.startswith('OPENQASM 2.0'):
+                    line = 'OPENQASM 2.5;'
                 # Remove duplicate opaque gate.
                 if line.startswith('opaque') and \
                         init_qasm[index-1].startswith('// PRAGMA remote-circuit'):
@@ -141,17 +146,46 @@ class CircuitService(IBMQService):
                     opaque_gates.append(gate_name)
                 final_qasm.append(line)
             qasm_strs.append('\n'.join(final_qasm))
-            print('\n'.join(final_qasm))
 
-        qobj_header = qobj_header or {}
-        qobj_header = {**dict(backend_name=backend.name(),
-                              backend_version=backend.configuration().backend_version),
-                       **qobj_header}
-
-        payload = {     # pylint: disable=unused-variable
-            "experiments": qasm_strs,
-            "header": qobj_header,
-            "config": {"shots": shots},
+        qobj_config = {     # pylint: disable=unused-variable
             "qobj_id": str(uuid.uuid4()),
-            "schema_version": "1.2.0"
+            "schema_version": "1.2.0",
+            "config": {"shots": shots, "backend": backend.name()},
         }
+        response = self._api_client.circuit_user_execute(qobj_config, qasm_strs)
+        return self._provider.backends.retrieve_job(response['id'])
+
+    def run_remote(
+            self,
+            circuit_name: str,
+            arguments: Dict,
+            backend: IBMQBackend,
+            shots: int = 1024
+    ) -> str:
+        """Execute a remote circuit asynchronously.
+
+        Args:
+            circuit_name: Name of the circuit to execute.
+            arguments: Arguments for the circuit.
+            backend: Backend to execute the circuits on.
+            shots: Number of repetitions of each circuit.
+
+        Returns:
+            ID of the job containing the remote circuit.
+        """
+        config = {"backend": backend.name(), "shots": shots}
+        response = self._api_client.circuit_lib_execute(
+            circuit_name, config, arguments)
+        return self._provider.backends.retrieve_job(response['id'])
+
+    def circuit_families(self) -> List[CircuitFamily]:
+        """Return a list of all circuit families.
+
+        Each family in the list has a name, a description, and a list of circuits
+        in the family.
+
+        Returns:
+            A list of all circuit families.
+        """
+        raw_data = self._api_client.circuit_families()
+        return [CircuitFamily(**data) for data in raw_data]

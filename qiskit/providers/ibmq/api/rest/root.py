@@ -33,7 +33,9 @@ class Api(RestAdapterBase):
         'hubs': '/Network',
         'version': '/version',
         'bookings': '/Network/bookings/v2',
-        'circuits': '/circuits'
+        'circuits': '/circuits',
+        'circuit_families': '/circuit-families',
+        'circuit_execute': '/circuits/execute'
     }
 
     # Client functions.
@@ -50,15 +52,6 @@ class Api(RestAdapterBase):
         return Circuit(self.session, circuit_name)
 
     # Request functions.
-
-    def circuits(self) -> List[Dict[str, Any]]:
-        """Return a list of circuits.
-
-        Returns:
-            JSON response.
-        """
-        url = self.get_url('circuits')
-        return self.session.get(url).json()
 
     def hubs(self) -> List[Dict[str, Any]]:
         """Return the list of hub/group/project sets available to the user.
@@ -127,3 +120,36 @@ class Api(RestAdapterBase):
         """
         url = self.get_url('bookings')
         return self.session.get(url).json()
+
+    def circuits(self) -> List[Dict[str, Any]]:
+        """Return a list of circuits.
+
+        Returns:
+            JSON response.
+        """
+        url = self.get_url('circuits')
+        return self.session.get(url).json()
+
+    def circuit_families(self) -> List[Dict[str, Any]]:
+        """Return all circuit families.
+
+        Returns:
+            JSON response.
+        """
+        url = self.get_url('circuit_families')
+        return self.session.get(url).json()
+
+    def circuits_user_execute(
+            self,
+            qobj_config: Dict,
+            experiments: List[str]
+    ) -> Dict[str, Any]:
+        """Execute a user circuit.
+
+        Returns:
+            JSON response.
+        """
+        url = self.get_url('circuit_execute')
+        payload = qobj_config
+        payload['experiments'] = experiments
+        return self.session.post(url, json=payload).json()

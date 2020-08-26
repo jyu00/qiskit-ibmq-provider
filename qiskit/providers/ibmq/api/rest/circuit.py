@@ -29,7 +29,8 @@ class Circuit(RestAdapterBase):
 
     URL_MAP = {
         'self': '',
-        'compile': '/compiled'
+        'compile': '/instantiated',
+        'execute': '/execute'
     }
 
     def __init__(self, session: RetrySession, circuit_name: str) -> None:
@@ -67,4 +68,22 @@ class Circuit(RestAdapterBase):
             'output_format': output_format
         }
         response = self.session.get(url, params=params).json()
+        return response
+
+    def execute_lib_circuit(self, config: Dict, arguments: Dict) -> Dict:
+        """Execute a cloud library circuit.
+
+        Args:
+            config: Run time configuration.
+            arguments: Circuit arguments.
+
+        Returns:
+            JSON response.
+        """
+        data = {
+            'config': config,
+            'arguments': arguments
+        }
+        url = self.get_url('execute')
+        response = self.session.post(url, json=data).json()
         return response

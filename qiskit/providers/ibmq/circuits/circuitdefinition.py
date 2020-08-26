@@ -21,11 +21,10 @@ from typing import Dict, Any, List
 from qiskit.circuit.quantumcircuit import QuantumCircuit
 from qiskit.providers.ibmq import accountprovider  # pylint: disable=unused-import
 import qiskit.circuit.library as circuit_library
+from qiskit.circuit.exceptions import CircuitError
 
-from .apiconstants import CircuitOutputType
 from .exceptions import IBMQCircuitBadArguments, CircuitReferenceNotFound
 from .remotegate import RemoteGate
-from ..api.exceptions import ApiIBMQProtocolError
 from ..api.clients.circuit import CircuitClient
 
 logger = logging.getLogger(__name__)
@@ -40,7 +39,8 @@ class CircuitDefinition:
             api_client: CircuitClient,
             name: str,
             description: str,
-            arguments: List[Dict[str, Any]]
+            arguments: List[Dict[str, Any]],
+            families: List[str]
     ):
         """CircuitDefinition constructor.
 
@@ -50,13 +50,14 @@ class CircuitDefinition:
             name: Circuit name.
             description: Circuit description.
             arguments: A list of parameters for the circuit.
+            families: A list of families the circuit belongs to.
         """
         self._provider = provider
         self._api_client = api_client
         self._name = name
         self._description = description
         self._parameters = [CircuitParameterDefinition.from_dict(raw_arg) for raw_arg in arguments]
-        self.arguments = None
+        self._families = families
 
     def instantiate(self, decompose: bool = False, **kwargs: Any) -> QuantumCircuit:
         """Instantiate the circuit with the input arguments.
@@ -90,17 +91,18 @@ class CircuitDefinition:
                 "Required parameters {} are missing.".format(','.join(missing_params)))
 
         if decompose:
-            raw_response = self._api_client.circuit_instantiate(
-                self.name, CircuitOutputType.QASM, **kwargs)
-            if raw_response['format'] != CircuitOutputType.QASM:
-                raise ApiIBMQProtocolError("Invalid output format {} received from "
-                                           "the server.".format(raw_response['format']))
-            return QuantumCircuit.from_qasm_str(raw_response['circuit'])
+            raise NotImplementedError("decompose=True is not implemented.")
+            # raw_response = self._api_client.circuit_instantiate(
+            #     self.name, CircuitOutputType.QASM, **kwargs)
+            # if raw_response['format'] != CircuitOutputType.QASM:
+            #     raise ApiIBMQProtocolError("Invalid output format {} received from "
+            #                                "the server.".format(raw_response['format']))
+            # return QuantumCircuit.from_qasm_str(raw_response['circuit'])
 
         circ_lib = inspect.getmembers(circuit_library, inspect.isclass)
         circ_class = None
         for lib_elem in circ_lib:
-            if lib_elem[0] == self.name:
+            if lib_elem[0].lower() == self.name.lower():
                 circ_class = lib_elem[1]
                 break
 
@@ -108,8 +110,10 @@ class CircuitDefinition:
             raise CircuitReferenceNotFound(
                 "Unable to find a reference {} circuit in circuit library.".format(self.name))
 
-        self.arguments = kwargs
-        ref_qx = circ_class(**kwargs)
+        try:
+            ref_qx = circ_class(**kwargs)
+        except CircuitError as cerr:
+            raise IBMQCircuitBadArguments(str(cerr)) from None
         opaque_gate = RemoteGate(name=self.name, num_qubits=ref_qx.num_qubits, params=[])
         opaque_gate._is_remote = True
         opaque_gate._remote_params = ["{}={}".format(name, val) for name, val in kwargs.items()]
@@ -127,6 +131,8 @@ class CircuitDefinition:
                 required = 'Required.' if param.required else ''
                 formatted += '\n    {} ({}): {}. {}'.format(
                     param.name, param.type, param.description, required)
+        if self.families:
+            formatted += '\n  Families: ' + ', '.join(self.families)
         print(formatted)
 
     @property
@@ -148,6 +154,11 @@ class CircuitDefinition:
     def parameters(self):
         """Return parameter definitions for the circuit."""
         return self._parameters
+
+    @property
+    def families(self):
+        """Return families of the circuit."""
+        return self._families
 
     def __repr__(self) -> str:
         return "<{}('{}') from {}>".format(self.__class__.__name__,
