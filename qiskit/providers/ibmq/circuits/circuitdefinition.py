@@ -59,13 +59,10 @@ class CircuitDefinition:
         self._parameters = [CircuitParameterDefinition.from_dict(raw_arg) for raw_arg in arguments]
         self._families = families
 
-    def instantiate(self, decompose: bool = False, **kwargs: Any) -> QuantumCircuit:
+    def instantiate(self, **kwargs: Any) -> QuantumCircuit:
         """Instantiate the circuit with the input arguments.
 
         Args:
-            decompose: True if the decomposed circuit is to be retrieved from the
-                IBM Quantum Experience server and returned. False if an opaque circuit
-                is to be returned.
             **kwargs: Arguments used to instantiate the circuit.
 
         Returns:
@@ -89,15 +86,6 @@ class CircuitDefinition:
         if missing_params:
             raise IBMQCircuitBadArguments(
                 "Required parameters {} are missing.".format(','.join(missing_params)))
-
-        if decompose:
-            raise NotImplementedError("decompose=True is not implemented.")
-            # raw_response = self._api_client.circuit_instantiate(
-            #     self.name, CircuitOutputType.QASM, **kwargs)
-            # if raw_response['format'] != CircuitOutputType.QASM:
-            #     raise ApiIBMQProtocolError("Invalid output format {} received from "
-            #                                "the server.".format(raw_response['format']))
-            # return QuantumCircuit.from_qasm_str(raw_response['circuit'])
 
         circ_lib = inspect.getmembers(circuit_library, inspect.isclass)
         circ_class = None

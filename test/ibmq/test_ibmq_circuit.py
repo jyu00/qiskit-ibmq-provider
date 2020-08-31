@@ -19,7 +19,7 @@ import random
 from typing import List, Optional
 from unittest import skip
 
-from qiskit import transpile, QuantumCircuit
+from qiskit import QuantumCircuit
 from qiskit.assembler.disassemble import disassemble
 from qiskit.providers.ibmq.circuits.circuitdefinition import (CircuitDefinition,
                                                               CircuitParameterDefinition)
@@ -107,50 +107,6 @@ class TestIBMQCircuit(IBMQTestCase):
         self.assertNotIn('bad_circuit', self.provider.circuit.__dict__)
         self.assertNotIn('bad_circuit',
                          [circ.name for circ in self.provider.circuit_definitions()])
-
-    @skip("Skip because instantiate with decompose doesn't work properly.")
-    def test_instantiate_all_args(self):
-        """Test instantiating a circuit with all parameters."""
-        good_circs = [circ for circ in self.circuit_definitions if circ.parameters]
-        if not good_circs:
-            self.skipTest("Test requires a circuit with parameters.")
-        circ = good_circs[random.randrange(len(good_circs))]
-        valid_args = {}
-        for param in circ.parameters:
-            valid_args[param.name] = self._get_valid_arg_value(param)
-        circ_inst = circ.instantiate(decompose=True, **valid_args)
-        self.assertIsInstance(circ_inst, QuantumCircuit)
-        backend = self.provider.backends(
-            filters=lambda b: b.configuration().n_qubits >= circ_inst.num_qubits)[0]
-        transpile(circ_inst, backend=backend)
-
-    @skip("Skip because instantiate with decompose doesn't work properly.")
-    def test_instantiate_only_required_args(self):
-        """Test instantiating a circuit with only required parameters."""
-        good_circ = None
-        for circ in self.circuit_definitions:
-            args_found = {'required': False, 'optional': False}
-            for param in circ.parameters:
-                if param.required:
-                    args_found['required'] = True
-                else:
-                    args_found['optional'] = True
-            if all(args_found.values()):
-                good_circ = circ
-                break
-
-        if not good_circ:
-            self.skipTest("Test requires a circuit with both required and optional arguments.")
-
-        valid_args = {}
-        for param in good_circ.parameters:
-            if param.required:
-                valid_args[param.name] = self._get_valid_arg_value(param)
-        circ_inst = good_circ.instantiate(decompose=False, **valid_args)
-        self.assertIsInstance(circ_inst, QuantumCircuit)
-        backend = self.provider.backends(
-            filters=lambda b: b.configuration().n_qubits >= circ_inst.num_qubits)[0]
-        transpile(circ_inst, backend=backend)
 
     def test_instantiate_missing_required_args(self):
         """Test instantiating a circuit with missing required arguments."""
@@ -293,7 +249,7 @@ class TestIBMQCircuit(IBMQTestCase):
                       "array[int]": [1, -1, -1, -1]}
         return valid_vars[circ_arg.type]
 
-    def _instantiate_circuit_with_params(self, decompose=False):
+    def _instantiate_circuit_with_params(self):
         good_circs = [circ for circ in self.circuit_definitions if circ.parameters]
         if not good_circs:
             self.skipTest("Test requires a circuit with parameters.")
@@ -301,5 +257,5 @@ class TestIBMQCircuit(IBMQTestCase):
         valid_args = {}
         for param in circ.parameters:
             valid_args[param.name] = self._get_valid_arg_value(param)
-        circ_inst = circ.instantiate(decompose=decompose, **valid_args)
+        circ_inst = circ.instantiate(**valid_args)
         return circ, circ_inst
