@@ -15,7 +15,7 @@
 """Provider for a single IBM Quantum Experience account."""
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from collections import OrderedDict
 
 from qiskit.providers import BaseProvider  # type: ignore[attr-defined]
@@ -150,13 +150,20 @@ class AccountProvider(BaseProvider):
 
         return ret
 
-    def circuit_definitions(self) -> List[CircuitDefinition]:
-        """Return the definitions of all available circuits.
+    def circuit_definitions(
+            self,
+            family: Optional[Union[str, List[str]]] = None
+    ) -> List[CircuitDefinition]:
+        """Return the definitions of all available circuits, with optional filtering.
+
+        Args:
+            family: A list of circuit families used for filtering. A circuit's families
+                must match the input list exactly to be included.
 
         Returns:
             Definitions of all available circuits.
         """
-        return self.circuit.instances()
+        return self.circuit.instances(family)
 
     def circuit_definition(self, name: str) -> CircuitDefinition:
         """Return definition for the specified circuit.

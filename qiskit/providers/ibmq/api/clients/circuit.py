@@ -15,7 +15,7 @@
 """Client for accessing circuit services."""
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any,  Optional
 
 from .base import BaseClient
 from ..rest import Api
@@ -40,16 +40,20 @@ class CircuitClient(BaseClient):
             base_url: Base URL.
             **request_kwargs: Arguments for the request ``Session``.
         """
+        base_url = 'https://circuits-lib-testing.apis-dev-5dd5718798d097eccc65fac4e78a33ce-0000.us-south.containers.appdomain.cloud'
         self._session = RetrySession(base_url, access_token, **request_kwargs)
         self.base_api = Api(self._session)
 
-    def list_circuits(self) -> List[Dict[str, Any]]:
+    def list_circuits(self, family: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Return circuits available for this provider.
+
+        Args:
+            family: A list of circuit families used for filtering.
 
         Returns:
             Circuits available for this provider.
         """
-        return self.base_api.circuits()
+        return self.base_api.circuits(family)
 
     def circuit_families(self) -> List:
         """Return a list of circuit families.

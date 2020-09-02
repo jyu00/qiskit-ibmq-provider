@@ -85,6 +85,27 @@ class CircuitService(IBMQService):
             api_client=self._api_client,
             **raw_data)
 
+    def instances(self, family: Optional[Union[str, List[str]]] = None) -> List[CircuitDefinition]:
+        """Return all circuit definitions, with optional filtering.
+
+        Args:
+            family: A list of circuit families used for filtering. A circuit's families
+                must match the input list exactly to be included.
+
+        Returns:
+            A list of circuit definitions.
+        """
+        if family:
+            if isinstance(family, str):
+                family = [family]
+            if self._initialized:
+                # Use cached definitions.
+                return [circ for circ in self._instances.values() if circ.families == family]
+            raw_data = self._api_client.list_circuits(family)
+            return [self._to_service_instance(config)[1] for config in raw_data]
+        self._discover_instances()
+        return list(self._instances.values())
+
     def get_instance(self, name: str) -> CircuitDefinition:  # type: ignore[override]
         """Return a specific circuit definition.
 

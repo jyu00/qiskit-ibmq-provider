@@ -17,7 +17,6 @@
 import os
 import random
 from typing import List, Optional
-from unittest import skip
 
 from qiskit import QuantumCircuit
 from qiskit.assembler.disassemble import disassemble
@@ -62,6 +61,37 @@ class TestIBMQCircuit(IBMQTestCase):
         for circ in self.circuit_definitions:
             circ.pprint()
             self.assertIsInstance(circ, CircuitDefinition)
+
+    def test_list_all_circuits_family(self):
+        """Test listing all circuits with family filter."""
+        def _verify_circs(circs, circ_name, q_family):
+            found_ref_circ = False
+            for circ in circs:
+                self.assertIsInstance(circ, CircuitDefinition)
+                self.assertEqual(circ.families, q_family)
+                if circ.name == circ_name:
+                    found_ref_circ = True
+            self.assertTrue(found_ref_circ,
+                            "Circuit {} not found when query with {}".format(
+                                circ_name, q_family))
+
+        ref_circ1 = self.circuit_definitions[0]
+        for circ in self.circuit_definitions:
+            if len(circ.families) > 1:
+                ref_circ1 = circ
+                break
+        test_families = [(ref_circ1.name, ref_circ1.families)]
+
+        for fam in self.provider.circuit.circuit_families():
+            if len(fam.circuits) > 1:
+                test_families.append((fam.circuits[0], [fam.name]))
+                break
+
+        for circ_name, fam in test_families:
+            with self.subTest(family=fam):
+                _verify_circs(self.provider.circuit_definitions(family=fam), circ_name, fam)
+                self.provider.circuit._initialized = False  # Force querying from server.
+                _verify_circs(self.provider.circuit_definitions(family=fam), circ_name, fam)
 
     def test_get_single_circuit(self):
         """Test retrieving a single circuit."""
@@ -128,7 +158,7 @@ class TestIBMQCircuit(IBMQTestCase):
         self.assertIn('phantom_arg', manager.exception.message)
 
     def test_instantiate_opaque_params(self):
-        """Test instantiating a circuit without decomposing."""
+        """Test instantiating a remote circuit."""
         circ_def, circ_inst = self._instantiate_circuit_with_params()
         self.assertIsInstance(circ_inst, QuantumCircuit)
         local_qx = QuantumCircuit(circ_inst.num_qubits, circ_inst.num_qubits)
@@ -139,37 +169,13 @@ class TestIBMQCircuit(IBMQTestCase):
         self.assertIn(circ_def.name.lower(), combined_qx.qasm())
         QuantumCircuit.from_qasm_str(combined_qx.qasm())
 
-    @skip("No circuit matches criteria.")
-    def test_instantiate_opaque_no_params(self):
-        """Test instantiating a circuit without decomposing and no parameters."""
-        good_circs = [circ for circ in self.circuit_definitions
-                      if all(not param.required for param in circ.parameters)]
-        if not good_circs:
-            self.skipTest("Test requires a circuit with no required parameters.")
-        circ = good_circs[random.randrange(len(good_circs))]
-        circ.pprint()
-        circ_inst = circ.instantiate()
-        self.assertIsInstance(circ_inst, QuantumCircuit)
-        local_qx = QuantumCircuit(circ_inst.num_qubits, circ_inst.num_qubits)
-        local_qx.h(0)
-        combined_qx = local_qx.compose(circ_inst, qubits=list(range(circ_inst.num_qubits)))
-        self.assertIn("remote_"+circ.name, [instr.name for instr, _, _ in combined_qx.data])
-
     def test_execute_lib_circuit(self):
         """Test executing a remote circuit."""
-        good_circs = [circ for circ in self.circuit_definitions if circ.parameters]
-        if not good_circs:
-            self.skipTest("Test requires a circuit with parameters.")
-
-        # TODO use random circuit when FC is fixed
-        circ_def = self.provider.circuit.qft
-        # circ_def = good_circs[random.randrange(len(good_circs))]
+        circ_def = self._get_good_circ()
         valid_args = {}
         for param in circ_def.parameters:
             valid_args[param.name] = self._get_valid_arg_value(param)
 
-        # circ = circ_def.instantiate(decompose=True, **valid_args)
-        # circ.measure_all()
         backend = self.provider.backends.ibmq_qasm_simulator
         job = self.provider.circuit.run_remote(
             circuit_name=circ_def.name,
@@ -178,8 +184,7 @@ class TestIBMQCircuit(IBMQTestCase):
             shots=1000
         )
         result = job.result()
-        # local_result = execute(circ, backend=backend).result()
-        # TODO compare results when fixed
+        self.assertTrue(result.get_counts())
 
     def test_execute_user_circuits(self):
         """Test executing different user circuits."""
@@ -246,16 +251,24 @@ class TestIBMQCircuit(IBMQTestCase):
                       "int": 5,
                       "float": 4.2,
                       "bool": True,
-                      "array[int]": [1, -1, -1, -1]}
+                      "array[int]": [1, -1, -1, -1]
+                      }
         return valid_vars[circ_arg.type]
 
     def _instantiate_circuit_with_params(self):
-        good_circs = [circ for circ in self.circuit_definitions if circ.parameters]
-        if not good_circs:
-            self.skipTest("Test requires a circuit with parameters.")
-        circ = good_circs[random.randrange(len(good_circs))]
+        """Instantiate a circuit with parameters."""
+        circ = self._get_good_circ()
         valid_args = {}
         for param in circ.parameters:
             valid_args[param.name] = self._get_valid_arg_value(param)
+        self.log.info("Using circuit {} with parameters {}".format(circ.name, valid_args))
         circ_inst = circ.instantiate(**valid_args)
         return circ, circ_inst
+
+    def _get_good_circ(self):
+        """Get a list of circuits that can be easily instantiated."""
+        good_circ_names = ['QFT', 'FourierChecking', 'QuantumVolume', 'InnerProduct',
+                           'PhaseEstimation']
+        good_circs = [circ for circ in self.circuit_definitions if circ.name in good_circ_names]
+        circ = good_circs[random.randrange(len(good_circs))]
+        return circ

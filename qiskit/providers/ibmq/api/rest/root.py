@@ -121,14 +121,20 @@ class Api(RestAdapterBase):
         url = self.get_url('bookings')
         return self.session.get(url).json()
 
-    def circuits(self) -> List[Dict[str, Any]]:
+    def circuits(self, family: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Return a list of circuits.
+
+        Args:
+            family: A list of circuit families used for filtering.
 
         Returns:
             JSON response.
         """
         url = self.get_url('circuits')
-        return self.session.get(url).json()
+        params = {}
+        if family:
+            params['family'] = family
+        return self.session.get(url, params=params).json()
 
     def circuit_families(self) -> List[Dict[str, Any]]:
         """Return all circuit families.
