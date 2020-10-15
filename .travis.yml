@@ -103,8 +103,6 @@ stage_win: &stage_win
 # Define the order of the stages.
 stages:
   - lint and pure python test
-  - test
-  - conditional tests
 
 # Define the job matrix explicitly, as matrix expansion causes issues when
 # using it with stages and some variables/sections cannot be overridden.
@@ -126,78 +124,8 @@ jobs:
       if: type != cron
       script: make mypy
 
-    # Run the tests against without compilation (GNU/Linux, Python 3.6)
-    - stage: lint and pure python test
-      <<: *stage_linux
-      if: type != cron
-
-    # "test" stage
-    ###########################################################################
-
-    # GNU/Linux, Python 3.6
-    - stage: test
-      <<: *stage_linux
-      if: type != cron
-      python: 3.6
-
-    # GNU/Linux, Python 3.7
-    - stage: test
-      <<: *stage_linux
-      if: type != cron
-      python: 3.7
-
-    # GNU/Linux, Python 3.8
-    - stage: test
-      <<: *stage_linux
-      if: type != cron
-      dist: xenial
-      python: 3.8
-
-    # OSX, Python 3.6.5 (via pyenv)
-    - stage: test
-      <<: *stage_osx
-      if: type != cron
-      env:
-        - MPLBACKEND=ps
-        - PYTHON_VERSION=3.6.5
-
-    # OSX, Python 3.7.2 (via pyenv)
-    - stage: test
-      <<: *stage_osx
-      if: type != cron
-      env:
-        - MPLBACKEND=ps
-        - PYTHON_VERSION=3.7.2
-
-    # OSX, Python 3.8.0 (via pyenv)
-    - stage: test
-      <<: *stage_osx
-      if: type != cron
-      env:
-        - MPLBACKEND=ps
-        - PYTHON_VERSION=3.8.0
-
-    # Windows, Python 3.8
-    - stage: test
-      <<: *stage_win
-      if: type != cron
-      env:
-        - PYTHON_VERSION=38
-
-    # "conditional tests" stage
-    ###########################################################################
-    # slow tests using Linux, Python 3.6
-    - stage: conditional tests
-      if: type = cron
-      <<: *stage_linux
-      python: 3.6
-      name: slow test
-      env:
-        - QISKIT_TESTS=run_slow
-      script:
-        - make test
     # test with terra master, using GNU/Linux, Python 3.8
-    - if: type = cron
+    - if: type != cron
       <<: *stage_linux
       python: 3.8
       name: with terra master
@@ -206,23 +134,3 @@ jobs:
         - QISKIT_TESTS=run_slow
       script:
         - make test
-    # additional Windows tests
-    # Windows, Python 3.7
-    - if: type = cron
-      <<: *stage_win
-      env:
-        - PYTHON_VERSION=37
-    # Windows, Python 3.6
-    - if: type = cron
-      <<: *stage_win
-      env:
-        - PYTHON_VERSION=36
-    - if: tag IS present
-      language: python
-      python: "3.6"
-      env:
-        - TWINE_USERNAME=qiskit
-      install: pip install -U twine
-      script:
-        - python3 setup.py sdist bdist_wheel
-        - twine upload dist/qiskit*
