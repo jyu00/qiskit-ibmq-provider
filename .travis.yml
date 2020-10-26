@@ -40,6 +40,8 @@ stage_generic: &stage_generic
   script:
     # Run the tests.
     - make test
+  env:
+    - USE_STAGING_CREDENTIALS=true
 
 stage_linux: &stage_linux
   <<: *stage_generic
