@@ -63,12 +63,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -U tox
           sudo apt install -y graphviz
+          pip install -U -c constraints.txt -r requirements-dev.txt
+          pip install -U sphinx-intl
+          pip install -U qiskit-aer
       - name: Run Docs build
-        run: tox -edocs
+        run: sphinx-build -W -b html ./docs ./_build/html
         shell: bash
-      - name: Publish docs
-        uses: actions/upload-artifact@v2
-        with:
-          name: sphinx-err-*.log
-          path: /tmp
-        if: ${{ !cancelled() }}
