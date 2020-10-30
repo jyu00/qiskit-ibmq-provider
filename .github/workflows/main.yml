@@ -54,6 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -63,10 +65,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -U tox
           sudo apt install -y graphviz
-          pip install -U -c constraints.txt -r requirements-dev.txt
-          pip install -U sphinx-intl
-          pip install -U qiskit-aer
-          pip install -e .
       - name: Run Docs build
-        run: sphinx-build -W -b html ./docs ./_build/html
-        shell: bash
+        run: tox -edocs
+      - uses: actions/upload-artifact@v2
+        with:
+          name: html_docs
+          path: docs/_build/html
