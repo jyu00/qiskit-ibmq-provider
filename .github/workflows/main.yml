@@ -6,18 +6,17 @@ on:
     branches: [ master]
 jobs:
   tests:
-    name: tests-python${{ matrix.python-version }}-${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: tests-python${{ matrix.python-version }}-macOS
+    runs-on: macOS-latest
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8]
-        os: ["macOS-latest"]
     env:
       QE_TOKEN: ${{ secrets.QE_TOKEN }}
       QE_URL: https://auth.quantum-computing.ibm.com/api
-      LOG_LEVEL: DEBUG
       QE_HGP: ${{ secrets.QE_HGP }}
       QE_PRIVATE_HGP: ${{ secrets.QE_PRIVATE_HGP }}
+      LOG_LEVEL: DEBUG
       STREAM_LOG: True
     steps:
       - uses: actions/checkout@v2
@@ -33,11 +32,12 @@ jobs:
       - name: Run Tests
         run: make test
   lint:
-    name: lint
+    name: lint & mypy
     runs-on: ubuntu-latest
     steps:
+      - continue-on-error: false
       - uses: actions/checkout@v2
-      - name: Set up Python 3.7
+      - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.7
@@ -47,18 +47,27 @@ jobs:
           pip install -U -c constraints.txt -r requirements-dev.txt
       - name: Run lint
         run: make style && make lint
-  mypy:
-    name: mypy
+      - name: Run mypy
+        run: make mypy
+  doc:
+    name: doc
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
+      - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.7
       - name: Install Deps
         run: |
           python -m pip install --upgrade pip
-          pip install -U -c constraints.txt -r requirements-dev.txt
-      - name: Run mypy
-        run: make mypy
+          pip install -U tox
+          pip install -U .
+          sudo apt install -y graphviz
+      - name: Run Docs build
+        run: tox -edocs
+      - name: Publish docs
+        uses: actions/upload-artifact@v2
+        with:
+          name: html_docs
+          path: docs/_build/html
