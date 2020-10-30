@@ -69,5 +69,6 @@ jobs:
       - name: Publish docs
         uses: actions/upload-artifact@v2
         with:
-          name: html_docs
-          path: docs/_build/html
+          name: sphinx-err-*.log
+          path: /tmp
+        if: ${{ !cancelled() }}
