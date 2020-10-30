@@ -66,6 +66,7 @@ jobs:
           pip install -U -c constraints.txt -r requirements-dev.txt
           pip install -U sphinx-intl
           pip install -U qiskit-aer
+          pip install -e .
       - name: Run Docs build
         run: sphinx-build -W -b html ./docs ./_build/html
         shell: bash
