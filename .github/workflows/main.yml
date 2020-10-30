@@ -48,7 +48,7 @@ jobs:
         run: make style && make lint
       - name: Run mypy
         run: make mypy
-        if: ${{ always() }}
+        if: ${{ !cancelled() }}
   doc:
     name: doc
     runs-on: ubuntu-latest
@@ -66,6 +66,7 @@ jobs:
           sudo apt install -y graphviz
       - name: Run Docs build
         run: tox -edocs
+        shell: bash
       - name: Publish docs
         uses: actions/upload-artifact@v2
         with:
