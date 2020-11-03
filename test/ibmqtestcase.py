@@ -16,6 +16,7 @@
 
 import os
 import logging
+import time
 
 from qiskit.test import QiskitTestCase
 
@@ -69,3 +70,6 @@ class IBMQTestCase(QiskitTestCase):
         if not any(isinstance(handler, logging.StreamHandler) for handler in logger.handlers):
             logger.addHandler(logging.StreamHandler())
             logger.propagate = False
+
+    def setUp(self):
+        time.sleep(3)
