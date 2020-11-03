@@ -14,7 +14,7 @@
 
 """Test for the Websocket client integration."""
 
-from unittest import mock
+from unittest import mock, skip
 from threading import Thread
 from queue import Queue
 
@@ -30,6 +30,7 @@ from ...decorators import requires_provider, requires_device
 from ...utils import most_busy_backend, bell_in_qobj, cancel_job
 
 
+@skip("test windows")
 class TestWebsocketIntegration(IBMQTestCase):
     """Websocket integration tests."""
 
