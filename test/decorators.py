@@ -77,10 +77,8 @@ def requires_qe_access(func):
         ONLINE_TESTS += 1
         ONLINE_TESTS_TOTAL += 1
         print(f">>>>> online test {ONLINE_TESTS_TOTAL}", flush=True)
-        if ONLINE_TESTS > 30:
-            print("sleeping...")
-            time.sleep(600)
-            ONLINE_TESTS = 0
+        if ONLINE_TESTS > 45:
+            raise SkipTest("Skipping....")
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
         kwargs.update({'qe_token': credentials.token,
