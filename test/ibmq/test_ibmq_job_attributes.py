@@ -15,7 +15,7 @@
 """Test IBMQJob attributes."""
 
 import time
-from unittest import mock, skip
+from unittest import mock
 from datetime import datetime, timedelta
 import re
 import uuid
@@ -38,7 +38,6 @@ from ..utils import (most_busy_backend, cancel_job, get_large_circuit,
 from ..fake_account_client import BaseFakeAccountClient, MissingFieldFakeJob
 
 
-@skip('Skipping to test windows.')
 class TestIBMQJobAttributes(JobTestCase):
     """Test IBMQJob instance attributes."""
 

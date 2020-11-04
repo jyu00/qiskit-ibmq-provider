@@ -17,7 +17,7 @@
 import time
 import copy
 from datetime import datetime, timedelta
-from unittest import SkipTest, mock, skip
+from unittest import SkipTest, mock
 from threading import Thread, Event
 
 import numpy

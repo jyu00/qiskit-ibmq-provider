@@ -37,6 +37,8 @@ from .websocket import WebsocketClient
 
 logger = logging.getLogger(__name__)
 
+OBJ_STOR_TEST = 0
+
 
 class AccountClient(BaseClient):
     """Client for accessing an individual IBM Quantum Experience account."""
@@ -217,6 +219,9 @@ class AccountClient(BaseClient):
         upload_url = job_info['objectStorageInfo']['uploadUrl']
         job_api = self.account_api.job(job_id)
 
+        global OBJ_STOR_TEST
+        OBJ_STOR_TEST += 1
+        print(f">>>>> OBJ_STOR_TEST is {OBJ_STOR_TEST}")
         try:
             # Upload the Qobj to object storage.
             _ = job_api.put_object_storage(upload_url, qobj_dict)

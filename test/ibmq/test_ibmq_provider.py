@@ -15,7 +15,6 @@
 """Tests for the AccountProvider class."""
 
 from datetime import datetime
-from unittest import skip
 
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.providers.exceptions import QiskitBackendNotFoundError
@@ -88,7 +87,6 @@ class TestAccountProvider(IBMQTestCase, providers.ProviderTestCase):
             if backend.configuration().simulator:
                 self.assertEqual(properties, None)
 
-    @skip("test windows")
     def test_qobj_headers_in_result_sims(self):
         """Test that the qobj headers are passed onto the results for sims."""
         backends = self.provider.backends(simulator=True)

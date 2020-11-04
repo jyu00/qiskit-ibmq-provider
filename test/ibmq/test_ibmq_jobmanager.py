@@ -19,7 +19,6 @@ import time
 from inspect import getfullargspec, isfunction
 import uuid
 from concurrent.futures import wait
-from unittest import skip
 
 from qiskit import QuantumCircuit
 from qiskit.result import Result
@@ -199,7 +198,6 @@ class TestIBMQJobManager(IBMQTestCase):
         rjob_set = self._jm.job_sets(name=name)[0]
         self.assertEqual(job_set, rjob_set)
 
-    @skip("Test windows")
     def test_retrieve_job_set(self):
         """Test retrieving a set of jobs."""
         tags = ['test_retrieve_job_set']
@@ -255,7 +253,6 @@ class TestIBMQJobManager(IBMQTestCase):
                           [self._qc]*2, backend=self.fake_api_backend,
                           job_share_level="invalid_job_share_level")
 
-    @skip("test windows")
     def test_job_tags(self):
         """Test job tags for managed jobs."""
         job_tags = [uuid.uuid4().hex]

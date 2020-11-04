@@ -29,7 +29,6 @@
 """
 
 import os
-import time
 from functools import wraps
 from unittest import SkipTest
 from typing import Optional
@@ -41,10 +40,6 @@ from qiskit.providers.ibmq.credentials import (Credentials,
                                                discover_credentials)
 from qiskit.providers.ibmq.accountprovider import AccountProvider
 from qiskit.providers.ibmq import IBMQ
-
-
-ONLINE_TESTS = 0
-ONLINE_TESTS_TOTAL = 0
 
 
 def requires_qe_access(func):
@@ -72,13 +67,6 @@ def requires_qe_access(func):
         if get_test_options()['skip_online']:
             raise SkipTest('Skipping online tests')
 
-        global ONLINE_TESTS
-        global ONLINE_TESTS_TOTAL
-        ONLINE_TESTS += 1
-        ONLINE_TESTS_TOTAL += 1
-        print(f">>>>> online test {ONLINE_TESTS_TOTAL}", flush=True)
-        if ONLINE_TESTS > 50:
-            raise SkipTest("Skipping....")
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
         kwargs.update({'qe_token': credentials.token,
@@ -229,7 +217,6 @@ def requires_device(func):
         if not _backend:
             raise Exception('Unable to find a suitable backend.')
 
-        print(f"using device {_backend}")
         kwargs.update({'backend': _backend})
 
         return func(obj, *args, **kwargs)
