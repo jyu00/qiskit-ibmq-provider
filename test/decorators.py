@@ -42,6 +42,9 @@ from qiskit.providers.ibmq.accountprovider import AccountProvider
 from qiskit.providers.ibmq import IBMQ
 
 
+ONLINE_TESTS = 0
+
+
 def requires_qe_access(func):
     """Decorator that signals that the test uses the online API.
 
@@ -67,6 +70,9 @@ def requires_qe_access(func):
         if get_test_options()['skip_online']:
             raise SkipTest('Skipping online tests')
 
+        global ONLINE_TESTS
+        ONLINE_TESTS += 1
+        print(f">>>>> online test {ONLINE_TESTS}", flush=True)
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
         kwargs.update({'qe_token': credentials.token,

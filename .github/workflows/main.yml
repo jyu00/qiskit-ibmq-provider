@@ -28,7 +28,7 @@ jobs:
           pip install -U -c constraints.txt -r requirements-dev.txt
           pip install -c constraints.txt -e .
       - name: Run Tests
-        run: python ./test/windows_test.py
+        run: make test
   lint:
     name: lint & mypy
     runs-on: ubuntu-latest
