@@ -74,7 +74,7 @@ def requires_qe_access(func):
         global ONLINE_TESTS
         ONLINE_TESTS += 1
         print(f">>>>> online test {ONLINE_TESTS}", flush=True)
-        time.sleep(5)
+        time.sleep(30)
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
         kwargs.update({'qe_token': credentials.token,

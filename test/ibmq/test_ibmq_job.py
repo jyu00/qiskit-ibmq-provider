@@ -17,7 +17,7 @@
 import time
 import copy
 from datetime import datetime, timedelta
-from unittest import SkipTest, mock
+from unittest import SkipTest, mock, skip
 from threading import Thread, Event
 
 import numpy
@@ -46,6 +46,7 @@ from ..utils import (most_busy_backend, get_large_circuit, bell_in_qobj, cancel_
                      submit_job_bad_shots, submit_and_cancel, submit_job_one_bad_instr)
 
 
+@skip("test windows")
 class TestIBMQJob(JobTestCase):
     """Test ibmqjob module."""
 

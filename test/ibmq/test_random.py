@@ -16,7 +16,7 @@
 
 import time
 import uuid
-from unittest import skipIf
+from unittest import skipIf, skip
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -34,7 +34,8 @@ except ImportError:
     HAS_QISKIT_RNG = False
 
 
-@skipIf(not HAS_QISKIT_RNG, 'qiskit_rng is needed for this test.')
+@skip("windows test")
+# @skipIf(not HAS_QISKIT_RNG, 'qiskit_rng is needed for this test.')
 class TestRandomIntegration(IBMQTestCase):
     """Integration tests for random number services."""
 

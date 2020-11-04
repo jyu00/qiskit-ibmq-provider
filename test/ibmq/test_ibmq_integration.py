@@ -15,6 +15,7 @@
 """Integration tests."""
 
 import time
+from unittest import skip
 
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.result import Result
@@ -113,6 +114,7 @@ class TestIBMQIntegration(IBMQTestCase):
         results = job.result()
         self.assertIsInstance(results, Result)
 
+    @skip("windows test")
     @requires_private_provider
     def test_private_job(self, provider):
         """Test a private job."""
