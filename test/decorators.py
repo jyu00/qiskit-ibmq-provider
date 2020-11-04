@@ -29,6 +29,7 @@
 """
 
 import os
+import time
 from functools import wraps
 from unittest import SkipTest
 from typing import Optional
@@ -73,6 +74,7 @@ def requires_qe_access(func):
         global ONLINE_TESTS
         ONLINE_TESTS += 1
         print(f">>>>> online test {ONLINE_TESTS}", flush=True)
+        time.sleep(5)
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
         kwargs.update({'qe_token': credentials.token,
