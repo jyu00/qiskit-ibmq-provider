@@ -77,7 +77,7 @@ def requires_qe_access(func):
         ONLINE_TESTS += 1
         ONLINE_TESTS_TOTAL += 1
         print(f">>>>> online test {ONLINE_TESTS_TOTAL}", flush=True)
-        if ONLINE_TESTS > 40:
+        if ONLINE_TESTS > 30:
             time.sleep(300)
             ONLINE_TESTS = 0
         credentials = _get_credentials()
