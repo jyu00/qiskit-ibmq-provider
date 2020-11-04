@@ -77,7 +77,7 @@ def requires_qe_access(func):
         ONLINE_TESTS += 1
         ONLINE_TESTS_TOTAL += 1
         print(f">>>>> online test {ONLINE_TESTS_TOTAL}", flush=True)
-        if ONLINE_TESTS > 45:
+        if ONLINE_TESTS > 50:
             raise SkipTest("Skipping....")
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
@@ -229,6 +229,7 @@ def requires_device(func):
         if not _backend:
             raise Exception('Unable to find a suitable backend.')
 
+        print(f"using device {_backend}")
         kwargs.update({'backend': _backend})
 
         return func(obj, *args, **kwargs)
