@@ -78,7 +78,7 @@ def requires_qe_access(func):
         ONLINE_TESTS_TOTAL += 1
         print(f">>>>> online test {ONLINE_TESTS_TOTAL}", flush=True)
         if ONLINE_TESTS > 40:
-            time.sleep(180)
+            time.sleep(300)
             ONLINE_TESTS = 0
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
