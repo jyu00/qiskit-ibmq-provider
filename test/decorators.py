@@ -44,6 +44,7 @@ from qiskit.providers.ibmq import IBMQ
 
 
 ONLINE_TESTS = 0
+ONLINE_TESTS_TOTAL = 0
 
 
 def requires_qe_access(func):
@@ -72,10 +73,13 @@ def requires_qe_access(func):
             raise SkipTest('Skipping online tests')
 
         global ONLINE_TESTS
+        global ONLINE_TESTS_TOTAL
         ONLINE_TESTS += 1
-        print(f">>>>> online test {ONLINE_TESTS}", flush=True)
-        if ONLINE_TESTS > 45:
-            time.sleep(60)
+        ONLINE_TESTS_TOTAL += 1
+        print(f">>>>> online test {ONLINE_TESTS_TOTAL}", flush=True)
+        if ONLINE_TESTS > 40:
+            time.sleep(180)
+            ONLINE_TESTS = 0
         credentials = _get_credentials()
         obj.using_ibmq_credentials = credentials.is_ibmq()
         kwargs.update({'qe_token': credentials.token,
