@@ -38,7 +38,6 @@ from ..utils import (most_busy_backend, cancel_job, get_large_circuit,
 from ..fake_account_client import BaseFakeAccountClient, MissingFieldFakeJob
 
 
-@skip("windows test")
 class TestIBMQJobAttributes(JobTestCase):
     """Test IBMQJob instance attributes."""
 

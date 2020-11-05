@@ -46,7 +46,6 @@ from ..utils import (most_busy_backend, get_large_circuit, bell_in_qobj, cancel_
                      submit_job_bad_shots, submit_and_cancel, submit_job_one_bad_instr)
 
 
-@skip("windows test")
 class TestIBMQJob(JobTestCase):
     """Test ibmqjob module."""
 
