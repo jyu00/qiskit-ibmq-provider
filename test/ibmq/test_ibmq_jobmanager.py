@@ -199,7 +199,6 @@ class TestIBMQJobManager(IBMQTestCase):
         rjob_set = self._jm.job_sets(name=name)[0]
         self.assertEqual(job_set, rjob_set)
 
-    @skip("windows test")
     def test_retrieve_job_set(self):
         """Test retrieving a set of jobs."""
         tags = ['test_retrieve_job_set']
