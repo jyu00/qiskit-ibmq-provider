@@ -14,7 +14,7 @@
 
 """Test serializing and deserializing data sent to the server."""
 
-from unittest import skipIf, SkipTest
+from unittest import skipIf, SkipTest, skip
 from typing import Any, Dict, Optional
 
 import dateutil.parser
@@ -39,6 +39,7 @@ class TestSerialization(IBMQTestCase):
         super().setUpClass()
         cls.provider = provider
 
+    @skip("windows test")
     def test_qasm_qobj(self):
         """Test serializing qasm qobj data."""
         backend = self.provider.get_backend('ibmq_qasm_simulator')
@@ -48,6 +49,7 @@ class TestSerialization(IBMQTestCase):
 
         self.assertEqual(_array_to_list(qobj.to_dict()), rqobj.to_dict())
 
+    @skip("windows test")
     def test_pulse_qobj(self):
         """Test serializing pulse qobj data."""
         backends = self.provider.backends(operational=True, open_pulse=True)
@@ -112,7 +114,8 @@ class TestSerialization(IBMQTestCase):
                 properties = backend.properties()
                 self._verify_data(properties.to_dict(), good_keys)
 
-    @skipIf(qiskit.__version__ < '0.15.0', 'Test requires terra 0.15.0')
+    # @skipIf(qiskit.__version__ < '0.15.0', 'Test requires terra 0.15.0')
+    @skip("windows test")
     def test_qasm_job_result(self):
         """Test deserializing a QASM job result."""
         backend = self.provider.get_backend('ibmq_qasm_simulator')

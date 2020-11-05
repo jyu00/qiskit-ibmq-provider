@@ -16,7 +16,7 @@
 
 import time
 import uuid
-from unittest import skipIf
+from unittest import skipIf, skip
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -50,6 +50,7 @@ class TestRandomIntegration(IBMQTestCase):
         """Return whether there is access to the CQC extractors."""
         return len(self.provider.random.services()) > 0
 
+    @skip("windows test")
     def test_cqc_extractor(self):
         """Test invoking the CQC extractors."""
         generator = Generator(self.provider.get_backend('ibmq_qasm_simulator'))
