@@ -28,7 +28,7 @@ jobs:
           pip install -U -c constraints.txt -r requirements-dev.txt
           pip install -c constraints.txt -e .
       - name: Run Tests
-        run: make test
+        run: make test1
   batch2:
     name: batch2-python${{ matrix.python-version }}-${{ matrix.os }}
     runs-on: ${{ matrix.os }}

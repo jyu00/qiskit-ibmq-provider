@@ -40,7 +40,6 @@ from ..fake_account_client import (BaseFakeAccountClient, CancelableFakeJob,
                                    JobTimeoutClient)
 
 
-@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestIBMQJobManager(IBMQTestCase):
     """Tests for IBMQJobManager."""
 

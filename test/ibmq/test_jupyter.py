@@ -14,8 +14,7 @@
 
 """Tests for Jupyter tools."""
 
-import os
-from unittest import mock, skipIf
+from unittest import mock
 
 from qiskit.providers.ibmq.jupyter.qubits_widget import qubits_tab
 from qiskit.providers.ibmq.jupyter.config_widget import config_tab
@@ -88,7 +87,6 @@ class TestBackendInfo(IBMQTestCase):
                 jobs_tab(backend)
 
 
-@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestIQXDashboard(IBMQTestCase):
     """Test backend information Jupyter widget."""
 

@@ -36,7 +36,6 @@ except ImportError:
 
 
 @skipIf(not HAS_QISKIT_RNG, 'qiskit_rng is needed for this test.')
-@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestRandomIntegration(IBMQTestCase):
     """Integration tests for random number services."""
 

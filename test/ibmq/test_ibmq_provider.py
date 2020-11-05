@@ -31,7 +31,6 @@ from ..decorators import requires_provider, requires_device
 from ..ibmqtestcase import IBMQTestCase
 
 
-@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestAccountProvider(IBMQTestCase, providers.ProviderTestCase):
     """Tests for the AccountProvider class."""
 

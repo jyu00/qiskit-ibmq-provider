@@ -14,8 +14,7 @@
 
 """Test serializing and deserializing data sent to the server."""
 
-import os
-from unittest import skipIf, SkipTest
+from unittest import SkipTest
 from typing import Any, Dict, Optional
 
 import dateutil.parser
@@ -28,7 +27,6 @@ from ..utils import bell_in_qobj, cancel_job
 from ..ibmqtestcase import IBMQTestCase
 
 
-@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestSerialization(IBMQTestCase):
     """Test data serialization."""
 

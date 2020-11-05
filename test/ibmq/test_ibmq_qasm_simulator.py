@@ -14,8 +14,6 @@
 
 """Test IBM Quantum online QASM simulator."""
 
-import os
-from unittest import skipIf
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.compiler import assemble, transpile
 
@@ -23,7 +21,6 @@ from ..ibmqtestcase import IBMQTestCase
 from ..decorators import requires_provider
 
 
-@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestIbmqQasmSimulator(IBMQTestCase):
     """Test IBM Quantum QASM Simulator."""
 
