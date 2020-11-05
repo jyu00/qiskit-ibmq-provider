@@ -255,6 +255,7 @@ class TestIBMQJobManager(IBMQTestCase):
                           [self._qc]*2, backend=self.fake_api_backend,
                           job_share_level="invalid_job_share_level")
 
+    @skip("windows testing")
     def test_job_tags(self):
         """Test job tags for managed jobs."""
         job_tags = [uuid.uuid4().hex]

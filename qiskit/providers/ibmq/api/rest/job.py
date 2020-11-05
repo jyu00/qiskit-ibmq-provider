@@ -190,7 +190,9 @@ class Job(RestAdapterBase):
         logger.debug('Uploading to object storage.')
         response = self.session.put(url, data=data, bare=True, timeout=600,
                                     headers={'Content-Type': 'application/json'})
-        return response.text
+        text = response.text
+        response.close()
+        return text
 
     def get_object_storage(self, url: str) -> Dict[str, Any]:
         """Get via object_storage.
