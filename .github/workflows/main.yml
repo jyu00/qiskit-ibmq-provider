@@ -2,11 +2,11 @@ name: Push-Test
 on: push
 jobs:
   tests:
-    name: tests-python${{ matrix.python-version }}-${{ matrix.os }}
+    name: tests1-python${{ matrix.python-version }}-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6]
+        python-version: [3.6, 3.7, 3.8]
         os: ["windows-latest"]
     env:
       QE_TOKEN: ${{ secrets.QE_TOKEN }}
@@ -30,11 +30,11 @@ jobs:
       - name: Run Tests
         run: make test1
   batch2:
-    name: batch2-python${{ matrix.python-version }}-${{ matrix.os }}
+    name: tests2-python${{ matrix.python-version }}-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6]
+        python-version: [3.6, 3.7, 3.8]
         os: ["windows-latest"]
     env:
       QE_TOKEN: ${{ secrets.QE_TOKEN }}
@@ -44,7 +44,6 @@ jobs:
       LOG_LEVEL: DEBUG
       STREAM_LOG: True
       QISKIT_IN_PARALLEL: True
-      SECOND_BATCH: True
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
