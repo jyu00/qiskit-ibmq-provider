@@ -268,6 +268,9 @@ class RetrySession(Session):
         headers = self.headers.copy()
         headers.update(kwargs.pop('headers', {}))
 
+        if method.upper() == 'PUT' and bare:
+            logger.debug(f">>>>> header is {headers}")
+
         try:
             self._log_request_info(url, method, kwargs)
             response = super().request(method, final_url, headers=headers, **kwargs)
