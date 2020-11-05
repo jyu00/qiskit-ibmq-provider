@@ -16,7 +16,6 @@ jobs:
       LOG_LEVEL: DEBUG
       STREAM_LOG: True
       QISKIT_IN_PARALLEL: True
-      SECOND_BATCH: True
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
@@ -30,3 +29,32 @@ jobs:
           pip install -c constraints.txt -e .
       - name: Run Tests
         run: make test
+  batch2:
+    name: batch2-python${{ matrix.python-version }}-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6]
+        os: ["windows-latest"]
+    env:
+      QE_TOKEN: ${{ secrets.QE_TOKEN }}
+      QE_URL: https://auth.quantum-computing.ibm.com/api
+      QE_HGP: ${{ secrets.QE_HGP }}
+      QE_PRIVATE_HGP: ${{ secrets.QE_PRIVATE_HGP }}
+      LOG_LEVEL: DEBUG
+      STREAM_LOG: True
+      QISKIT_IN_PARALLEL: True
+      SECOND_BATCH: True
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U -c constraints.txt -r requirements-dev.txt
+          pip install -c constraints.txt -e .
+      - name: Run Tests
+        run: make test2
