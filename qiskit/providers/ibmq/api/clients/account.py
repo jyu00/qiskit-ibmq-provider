@@ -222,6 +222,7 @@ class AccountClient(BaseClient):
         global OBJ_STOR_TEST
         OBJ_STOR_TEST += 1
         print(f">>>>> OBJ_STOR_TEST is {OBJ_STOR_TEST}", flush=True)
+        time.sleep(300)
         try:
             # Upload the Qobj to object storage.
             _ = job_api.put_object_storage(upload_url, qobj_dict)
