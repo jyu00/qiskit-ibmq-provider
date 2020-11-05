@@ -1,0 +1,31 @@
+# This code is part of Qiskit.
+#
+# (C) Copyright IBM 2020.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+name: 'Run Unit Tests'
+description: 'Run Unit Tests'
+inputs:
+  test_set:
+    description: 'Which set of tests to run'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - env:
+        QE_TOKEN: ${{ secrets.QE_TOKEN }}
+        QE_URL: https://auth.quantum-computing.ibm.com/api
+        QE_HGP: ${{ secrets.QE_HGP }}
+        QE_PRIVATE_HGP: ${{ secrets.QE_PRIVATE_HGP }}
+        LOG_LEVEL: DEBUG
+        STREAM_LOG: True
+        QISKIT_IN_PARALLEL: True
+      run: make ${{ inputs.test_set }}
+      shell: bash
