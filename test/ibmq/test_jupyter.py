@@ -14,7 +14,8 @@
 
 """Tests for Jupyter tools."""
 
-from unittest import mock, skip
+import os
+from unittest import mock, skipIf
 
 from qiskit.providers.ibmq.jupyter.qubits_widget import qubits_tab
 from qiskit.providers.ibmq.jupyter.config_widget import config_tab
@@ -87,6 +88,7 @@ class TestBackendInfo(IBMQTestCase):
                 jobs_tab(backend)
 
 
+@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestIQXDashboard(IBMQTestCase):
     """Test backend information Jupyter widget."""
 
@@ -107,7 +109,6 @@ class TestIQXDashboard(IBMQTestCase):
                 b_w_p = BackendWithProviders(backend=backend, providers=[provider_str])
                 make_backend_widget(b_w_p)
 
-    @skip("windows test")
     def test_job_widget(self):
         """Test jobs tab."""
         backend = self.provider.get_backend('ibmq_qasm_simulator')
@@ -115,7 +116,6 @@ class TestIQXDashboard(IBMQTestCase):
         job = backend.run(qobj)
         create_job_widget(mock.MagicMock(), job, backend=backend.name(), status=job.status().value)
 
-    @skip("windows test")
     def test_watcher_monitor(self):
         """Test job watcher."""
         backend = self.provider.get_backend('ibmq_qasm_simulator')

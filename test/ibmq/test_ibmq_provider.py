@@ -14,7 +14,8 @@
 
 """Tests for the AccountProvider class."""
 
-from unittest import skip
+import os
+from unittest import skipIf
 from datetime import datetime
 
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
@@ -30,6 +31,7 @@ from ..decorators import requires_provider, requires_device
 from ..ibmqtestcase import IBMQTestCase
 
 
+@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestAccountProvider(IBMQTestCase, providers.ProviderTestCase):
     """Tests for the AccountProvider class."""
 
@@ -88,7 +90,6 @@ class TestAccountProvider(IBMQTestCase, providers.ProviderTestCase):
             if backend.configuration().simulator:
                 self.assertEqual(properties, None)
 
-    @skip("windows test")
     def test_qobj_headers_in_result_sims(self):
         """Test that the qobj headers are passed onto the results for sims."""
         backends = self.provider.backends(simulator=True)

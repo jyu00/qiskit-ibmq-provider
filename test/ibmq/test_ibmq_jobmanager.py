@@ -14,12 +14,13 @@
 
 """Tests for the IBMQJobManager."""
 
+import os
 import copy
 import time
 from inspect import getfullargspec, isfunction
 import uuid
 from concurrent.futures import wait
-from unittest import skip
+from unittest import skipIf
 
 from qiskit import QuantumCircuit
 from qiskit.result import Result
@@ -39,6 +40,7 @@ from ..fake_account_client import (BaseFakeAccountClient, CancelableFakeJob,
                                    JobTimeoutClient)
 
 
+@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestIBMQJobManager(IBMQTestCase):
     """Tests for IBMQJobManager."""
 

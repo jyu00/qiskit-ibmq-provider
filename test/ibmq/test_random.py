@@ -14,9 +14,10 @@
 
 """Tests for random number services."""
 
+import os
 import time
 import uuid
-from unittest import skipIf, skip
+from unittest import skipIf
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -35,6 +36,7 @@ except ImportError:
 
 
 @skipIf(not HAS_QISKIT_RNG, 'qiskit_rng is needed for this test.')
+@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestRandomIntegration(IBMQTestCase):
     """Integration tests for random number services."""
 
@@ -50,7 +52,6 @@ class TestRandomIntegration(IBMQTestCase):
         """Return whether there is access to the CQC extractors."""
         return len(self.provider.random.services()) > 0
 
-    @skip("windows test")
     def test_cqc_extractor(self):
         """Test invoking the CQC extractors."""
         generator = Generator(self.provider.get_backend('ibmq_qasm_simulator'))

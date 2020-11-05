@@ -14,7 +14,8 @@
 
 """Test IBM Quantum online QASM simulator."""
 
-from unittest import skip
+import os
+from unittest import skipIf
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.compiler import assemble, transpile
 
@@ -22,6 +23,7 @@ from ..ibmqtestcase import IBMQTestCase
 from ..decorators import requires_provider
 
 
+@skipIf(not os.environ.get('SECOND_BATCH', ''), "Skip second batch.")
 class TestIbmqQasmSimulator(IBMQTestCase):
     """Test IBM Quantum QASM Simulator."""
 
@@ -33,7 +35,6 @@ class TestIbmqQasmSimulator(IBMQTestCase):
         self.provider = provider
         self.sim_backend = self.provider.get_backend(simulator=True)
 
-    @skip("windows test")
     def test_execute_one_circuit_simulator_online(self):
         """Test execute_one_circuit_simulator_online."""
         qr = QuantumRegister(1)
@@ -51,7 +52,6 @@ class TestIbmqQasmSimulator(IBMQTestCase):
         threshold = 0.1 * shots
         self.assertDictAlmostEqual(counts, target, threshold)
 
-    @skip("windows test")
     def test_execute_several_circuits_simulator_online(self):
         """Test execute_several_circuits_simulator_online."""
         qr = QuantumRegister(2)
@@ -79,7 +79,6 @@ class TestIbmqQasmSimulator(IBMQTestCase):
         self.assertDictAlmostEqual(counts1, target1, threshold)
         self.assertDictAlmostEqual(counts2, target2, threshold)
 
-    @skip("windows test")
     def test_online_qasm_simulator_two_registers(self):
         """Test online_qasm_simulator_two_registers."""
         qr1 = QuantumRegister(2)
@@ -107,7 +106,6 @@ class TestIbmqQasmSimulator(IBMQTestCase):
         self.assertEqual(result1, {'00 01': 1024})
         self.assertEqual(result2, {'10 00': 1024})
 
-    @skip("windows test")
     def test_conditional_operation(self):
         """Test conditional operation."""
         qr = QuantumRegister(4)
