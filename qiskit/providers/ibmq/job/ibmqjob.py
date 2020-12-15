@@ -120,6 +120,7 @@ class IBMQJob(Job):
             run_mode: Optional[str] = None,
             share_level: Optional[str] = None,
             client_info: Optional[Dict[str, str]] = None,
+            experiment_id: Optional[str] = None,
             **kwargs: Any
     ) -> None:
         """IBMQJob constructor.
@@ -140,6 +141,7 @@ class IBMQJob(Job):
             run_mode: Scheduling mode the job runs in.
             share_level: Level the job can be shared with.
             client_info: Client version.
+            experiment_id: ID of the experiment this job is for.
             kwargs: Additional job attributes.
         """
         self._backend = backend
@@ -162,6 +164,7 @@ class IBMQJob(Job):
         self._share_level = share_level
         self.client_version = client_info
         self._set_result(result)
+        self._experiment_id = experiment_id
 
         self._data = {}
         for key, value in kwargs.items():
@@ -675,6 +678,12 @@ class IBMQJob(Job):
 
         return self._run_mode
 
+    def experiment_id(self) -> Optional[str]:
+        """Return experiment ID."""
+        if self._experiment_id is None:
+            self.refresh()
+        return self._experiment_id
+
     @property
     def client_version(self) -> Dict[str, str]:
         """Return version of the client used for this job.
@@ -758,6 +767,7 @@ class IBMQJob(Job):
         self._share_level = api_response.pop('share_level', 'none')
         self.client_version = api_response.pop('client_info', None)
         self._set_result(api_response.pop('result', None))
+        self._experiment_id = api_response.pop('experiment_id', None)
 
         for key, value in api_response.items():
             self._data[key + '_'] = value

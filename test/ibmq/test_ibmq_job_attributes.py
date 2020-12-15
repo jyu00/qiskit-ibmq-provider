@@ -455,3 +455,14 @@ class TestIBMQJobAttributes(JobTestCase):
         """Test job client version information."""
         self.assertIsNotNone(self.sim_job.result().client_version)
         self.assertIsNotNone(self.sim_job.client_version)
+
+    def test_experiment_id(self):
+        """Test job experiment id."""
+        experiment_id = str(uuid.uuid4())
+        job = self.sim_backend.run(self.bell, experiment_id=experiment_id)
+        self.assertEqual(job.experiment_id(), experiment_id)
+        rjob = self.sim_backend.retrieve_job(job.job_id())
+        self.assertEqual(rjob.experiment_id(), experiment_id)
+        jobs = self.sim_backend.jobs(experiment_id=experiment_id)
+        self.assertIn(job.job_id(), [sjob.job_id() for sjob in jobs])
+        self.assertEqual(jobs[0].experiment_id(), experiment_id)

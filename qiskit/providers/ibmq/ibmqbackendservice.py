@@ -145,6 +145,7 @@ class IBMQBackendService:
             job_tags: Optional[List[str]] = None,
             job_tags_operator: Optional[str] = "OR",
             descending: bool = True,
+            experiment_id: Optional[str] = None,
             db_filter: Optional[Dict[str, Any]] = None
     ) -> List[IBMQJob]:
         """Return a list of jobs, subject to optional filtering.
@@ -181,6 +182,7 @@ class IBMQBackendService:
                       of the tags specified in ``job_tags`` to be included.
             descending: If ``True``, return the jobs in descending order of the job
                 creation date (i.e. newest first) until the limit is reached.
+            experiment_id: ID of the experiment this job is for.
             db_filter: A `loopback-based filter
                 <https://loopback.io/doc/en/lb2/Querying-data.html>`_.
                 This is an interface to a database ``where`` filter.
@@ -241,6 +243,9 @@ class IBMQBackendService:
                 raise IBMQBackendValueError(
                     '"{}" is not a valid job_tags_operator value. '
                     'Valid values are "AND" and "OR"'.format(job_tags_operator))
+
+        if experiment_id:
+            api_filter['experimentTag'] = experiment_id
 
         if db_filter:
             # Rather than overriding the logical operators `and`/`or`, first
