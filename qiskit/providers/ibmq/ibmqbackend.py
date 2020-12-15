@@ -148,6 +148,7 @@ class IBMQBackend(Backend):
             job_name: Optional[str] = None,
             job_share_level: Optional[str] = None,
             job_tags: Optional[List[str]] = None,
+            experiment_id: Optional[str] = None,
             validate_qobj: bool = False,
             header: Optional[Dict] = None,
             shots: Optional[int] = None,
@@ -192,6 +193,8 @@ class IBMQBackend(Backend):
                 If the job share level is not specified, the job is not shared at any level.
             job_tags: Tags to be assigned to the job. The tags can subsequently be used
                 as a filter in the :meth:`jobs()` function call.
+            experiment_id: ID of the experiment this job is for. This can later be used
+                to query for jobs associated with the same experiment.
             validate_qobj: If ``True``, run JSON schema validation against the
                 submitted payload. Only applicable if a Qobj is passed in.
 
@@ -282,7 +285,7 @@ class IBMQBackend(Backend):
 
         if validate_qobj:
             validate_qobj_against_schema(qobj)
-        return self._submit_job(qobj, job_name, api_job_share_level, job_tags)
+        return self._submit_job(qobj, job_name, api_job_share_level, job_tags, experiment_id)
 
     def _get_run_config(self, **kwargs: Any) -> Dict:
         """Return the consolidated runtime configuration."""
@@ -300,7 +303,8 @@ class IBMQBackend(Backend):
             qobj: Union[QasmQobj, PulseQobj],
             job_name: Optional[str] = None,
             job_share_level: Optional[ApiJobShareLevel] = None,
-            job_tags: Optional[List[str]] = None
+            job_tags: Optional[List[str]] = None,
+            experiment_id: Optional[str] = None
     ) -> IBMQJob:
         """Submit the Qobj to the backend.
 
@@ -312,6 +316,7 @@ class IBMQBackend(Backend):
                 Job names do not need to be unique.
             job_share_level: Level the job should be shared at.
             job_tags: Tags to be assigned to the job.
+            experiment_id: ID of the experiment this job is for.
 
         Returns:
             The job to be executed.
@@ -336,7 +341,8 @@ class IBMQBackend(Backend):
                 qobj_dict=qobj_dict,
                 job_name=job_name,
                 job_share_level=job_share_level,
-                job_tags=job_tags)
+                job_tags=job_tags,
+                experiment_id=experiment_id)
         except ApiError as ex:
             if 'Error code: 3458' in str(ex):
                 raise IBMQBackendJobLimitError('Error submitting job: {}'.format(str(ex))) from ex
@@ -539,6 +545,7 @@ class IBMQBackend(Backend):
             job_tags: Optional[List[str]] = None,
             job_tags_operator: Optional[str] = "OR",
             descending: bool = True,
+            experiment_id: Optional[str] = None,
             db_filter: Optional[Dict[str, Any]] = None
     ) -> List[IBMQJob]:
         """Return the jobs submitted to this backend, subject to optional filtering.
@@ -575,6 +582,7 @@ class IBMQBackend(Backend):
                       of the tags specified in ``job_tags`` to be included.
             descending: If ``True``, return the jobs in descending order of the job
                 creation date (newest first). If ``False``, return in ascending order.
+            experiment_id: ID of the experiment the jobs are for.
             db_filter: A `loopback-based filter
                 <https://loopback.io/doc/en/lb2/Querying-data.html>`_.
                 This is an interface to a database ``where`` filter. Some
@@ -598,7 +606,7 @@ class IBMQBackend(Backend):
         return self._provider.backend.jobs(
             limit, skip, self.name(), status,
             job_name, start_datetime, end_datetime, job_tags, job_tags_operator,
-            descending, db_filter)
+            descending, experiment_id, db_filter)
 
     def active_jobs(self, limit: int = 10) -> List[IBMQJob]:
         """Return the unfinished jobs submitted to this backend.
@@ -723,6 +731,7 @@ class IBMQSimulator(IBMQBackend):
             job_name: Optional[str] = None,
             job_share_level: Optional[str] = None,
             job_tags: Optional[List[str]] = None,
+            experiment_id: Optional[str] = None,
             validate_qobj: bool = False,
             backend_options: Optional[Dict] = None,
             noise_model: Any = None,
@@ -744,6 +753,8 @@ class IBMQSimulator(IBMQBackend):
                 global level (see :meth:`IBMQBackend.run()<IBMQBackend.run>` for more details).
             job_tags: Tags to be assigned to the jobs. The tags can subsequently be used
                 as a filter in the :meth:`IBMQBackend.jobs()<IBMQBackend.jobs>` method.
+            experiment_id: ID of the experiment this job is for. This can later be used
+                to query for jobs associated with the same experiment.
             validate_qobj: If ``True``, run JSON schema validation against the
                 submitted payload
             backend_options: DEPRECATED dictionary of backend options for the execution.
@@ -765,7 +776,8 @@ class IBMQSimulator(IBMQBackend):
         run_config = copy.copy(backend_options)
         run_config.update(kwargs)
         return super().run(circuits, job_name=job_name, job_share_level=job_share_level,
-                           job_tags=job_tags, validate_qobj=validate_qobj,
+                           job_tags=job_tags, experiment_id=experiment_id,
+                           validate_qobj=validate_qobj,
                            noise_model=noise_model, **run_config)
 
 
