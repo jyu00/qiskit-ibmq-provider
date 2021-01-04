@@ -14,6 +14,7 @@
 
 import urllib
 import subprocess
+import time
 
 from requests.exceptions import ProxyError
 
@@ -41,6 +42,7 @@ class TestProxies(IBMQTestCase):
         # launch a mock server.
         command = ['pproxy', '-v', '-l', 'http://{}:{}'.format(ADDRESS, PORT)]
         self.proxy_process = subprocess.Popen(command, stdout=subprocess.PIPE)
+        time.sleep(2)
 
     def tearDown(self):
         """Test cleanup."""
@@ -48,8 +50,9 @@ class TestProxies(IBMQTestCase):
 
         # terminate the mock server.
         if self.proxy_process.returncode is None:
-            self.proxy_process.stdout.close()  # close the IO buffer
+            # self.proxy_process.stdout.close()  # close the IO buffer
             self.proxy_process.terminate()  # initiate process termination
+            self.log.debug(self.proxy_process.stdout.read().decode('utf-8'))
 
             # wait for the process to terminate
             self.proxy_process.wait()
